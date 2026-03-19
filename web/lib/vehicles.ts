@@ -1,8 +1,3 @@
-/**
- * Vehicle database — maps year/make/model to tank size + MPG.
- * In production, would call the EPA fueleconomy.gov API.
- */
-
 export interface VehicleSpec {
   year: number;
   make: string;
@@ -12,16 +7,22 @@ export interface VehicleSpec {
   fuelType: "regular" | "midgrade" | "premium" | "diesel" | "electric";
 }
 
-// WHY: Top-selling US vehicles by volume (2020-2025).
-const VEHICLE_DATABASE: VehicleSpec[] = [
+// WHY: Top-selling US vehicles by volume (2020-2025). A production system
+// would use the EPA API at fueleconomy.gov/ws/rest/vehicle to cover all
+// ~45,000 model-year combinations.
+export const VEHICLE_DATABASE: VehicleSpec[] = [
   // Trucks
   { year: 2024, make: "Ford", model: "F-150", tankGallons: 26.0, combinedMpg: 24, fuelType: "regular" },
   { year: 2023, make: "Ford", model: "F-150", tankGallons: 26.0, combinedMpg: 24, fuelType: "regular" },
   { year: 2022, make: "Ford", model: "F-150", tankGallons: 26.0, combinedMpg: 24, fuelType: "regular" },
+  { year: 2021, make: "Ford", model: "F-150", tankGallons: 26.0, combinedMpg: 23, fuelType: "regular" },
+  { year: 2020, make: "Ford", model: "F-150", tankGallons: 26.0, combinedMpg: 23, fuelType: "regular" },
   { year: 2024, make: "Chevrolet", model: "Silverado 1500", tankGallons: 24.0, combinedMpg: 23, fuelType: "regular" },
   { year: 2023, make: "Chevrolet", model: "Silverado 1500", tankGallons: 24.0, combinedMpg: 23, fuelType: "regular" },
+  { year: 2022, make: "Chevrolet", model: "Silverado 1500", tankGallons: 24.0, combinedMpg: 23, fuelType: "regular" },
   { year: 2024, make: "RAM", model: "1500", tankGallons: 26.0, combinedMpg: 22, fuelType: "regular" },
   { year: 2023, make: "RAM", model: "1500", tankGallons: 26.0, combinedMpg: 22, fuelType: "regular" },
+  { year: 2022, make: "RAM", model: "1500", tankGallons: 26.0, combinedMpg: 22, fuelType: "regular" },
   { year: 2024, make: "Toyota", model: "Tacoma", tankGallons: 21.1, combinedMpg: 24, fuelType: "regular" },
   { year: 2023, make: "Toyota", model: "Tacoma", tankGallons: 21.1, combinedMpg: 22, fuelType: "regular" },
   { year: 2024, make: "Toyota", model: "Tundra", tankGallons: 22.5, combinedMpg: 20, fuelType: "regular" },
@@ -34,6 +35,7 @@ const VEHICLE_DATABASE: VehicleSpec[] = [
   // SUVs
   { year: 2024, make: "Toyota", model: "RAV4", tankGallons: 14.5, combinedMpg: 30, fuelType: "regular" },
   { year: 2023, make: "Toyota", model: "RAV4", tankGallons: 14.5, combinedMpg: 30, fuelType: "regular" },
+  { year: 2022, make: "Toyota", model: "RAV4", tankGallons: 14.5, combinedMpg: 30, fuelType: "regular" },
   { year: 2024, make: "Honda", model: "CR-V", tankGallons: 14.0, combinedMpg: 30, fuelType: "regular" },
   { year: 2023, make: "Honda", model: "CR-V", tankGallons: 14.0, combinedMpg: 30, fuelType: "regular" },
   { year: 2024, make: "Tesla", model: "Model Y", tankGallons: 0, combinedMpg: 0, fuelType: "electric" },
@@ -65,6 +67,7 @@ const VEHICLE_DATABASE: VehicleSpec[] = [
   // Sedans
   { year: 2024, make: "Toyota", model: "Camry", tankGallons: 14.5, combinedMpg: 32, fuelType: "regular" },
   { year: 2023, make: "Toyota", model: "Camry", tankGallons: 14.5, combinedMpg: 32, fuelType: "regular" },
+  { year: 2022, make: "Toyota", model: "Camry", tankGallons: 14.5, combinedMpg: 32, fuelType: "regular" },
   { year: 2024, make: "Honda", model: "Civic", tankGallons: 12.4, combinedMpg: 36, fuelType: "regular" },
   { year: 2023, make: "Honda", model: "Civic", tankGallons: 12.4, combinedMpg: 36, fuelType: "regular" },
   { year: 2024, make: "Honda", model: "Accord", tankGallons: 14.8, combinedMpg: 32, fuelType: "regular" },
@@ -88,7 +91,7 @@ const VEHICLE_DATABASE: VehicleSpec[] = [
   { year: 2024, make: "Chrysler", model: "Pacifica", tankGallons: 19.0, combinedMpg: 22, fuelType: "regular" },
   { year: 2023, make: "Chrysler", model: "Pacifica", tankGallons: 19.0, combinedMpg: 22, fuelType: "regular" },
 
-  // Premium
+  // Sports / Premium
   { year: 2024, make: "BMW", model: "3 Series", tankGallons: 15.6, combinedMpg: 30, fuelType: "premium" },
   { year: 2023, make: "BMW", model: "3 Series", tankGallons: 15.6, combinedMpg: 30, fuelType: "premium" },
   { year: 2024, make: "Mercedes-Benz", model: "C-Class", tankGallons: 17.4, combinedMpg: 30, fuelType: "premium" },
@@ -106,7 +109,7 @@ export function getUniqueMakes(): string[] {
 export function getModelsForMake(make: string): string[] {
   return [
     ...new Set(
-      VEHICLE_DATABASE.filter((v) => v.make === make).map((v) => v.model)
+      VEHICLE_DATABASE.filter((v) => v.make === make).map((v) => v.model),
     ),
   ].sort();
 }
@@ -114,29 +117,17 @@ export function getModelsForMake(make: string): string[] {
 export function getYearsForMakeModel(make: string, model: string): number[] {
   return [
     ...new Set(
-      VEHICLE_DATABASE.filter((v) => v.make === make && v.model === model).map(
-        (v) => v.year
-      )
+      VEHICLE_DATABASE.filter(
+        (v) => v.make === make && v.model === model,
+      ).map((v) => v.year),
     ),
   ].sort((a, b) => b - a);
 }
 
-export function findVehicle(
-  make: string,
-  model: string,
-  year: number
-): VehicleSpec | undefined {
-  return VEHICLE_DATABASE.find(
-    (v) => v.make === make && v.model === model && v.year === year
-  );
-}
-
-// WHY: 4.33 weeks/month = 52 weeks / 12 months
 export function estimateMonthlyGallons(
-  vehicle: VehicleSpec,
-  weeklyMiles: number
+  mpg: number,
+  monthlyMiles: number,
 ): number {
-  if (vehicle.combinedMpg <= 0) return 0;
-  const weeklyGallons = weeklyMiles / vehicle.combinedMpg;
-  return Math.round(weeklyGallons * 4.33 * 10) / 10;
+  if (mpg <= 0) return 0;
+  return Math.round(monthlyMiles / mpg);
 }

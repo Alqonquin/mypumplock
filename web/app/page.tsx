@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSession, signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   priceProtectionPlan,
@@ -11,42 +13,44 @@ import {
 } from "@/lib/pricing-engine";
 import { lookupPrice, type LocalPriceResult } from "@/lib/gas-prices";
 import { searchAddresses, isNonUsAddress, type AddressResult } from "@/lib/address-search";
+import { estimateMonthlyGallons } from "@/lib/vehicles";
 
 // WHY: Normal volatility (40%) is the default for consumer-facing pricing.
 // We don't expose volatility selection to end users — it's an internal lever.
 const DEFAULT_VOLATILITY = 0.40;
 const DEFAULT_RISK_FREE_RATE = 0.045;
 
-const GALLON_PRESETS = [
-  { label: "Light", gallons: 30, desc: "Short commute, sedan" },
-  { label: "Average", gallons: 50, desc: "Typical driver" },
-  { label: "Heavy", gallons: 80, desc: "Long commute, SUV/truck" },
-  { label: "Road Warrior", gallons: 120, desc: "High mileage" },
+const MILEAGE_PRESETS = [
+  { label: "Light", miles: 500, desc: "Work from home" },
+  { label: "Average", miles: 1000, desc: "Typical commuter" },
+  { label: "Heavy", miles: 1500, desc: "Long commute" },
+  { label: "Road Warrior", miles: 2500, desc: "Always on the road" },
 ];
 
-/** Shield + gas nozzle logo — matches PumpLock brand logo (circle + filled shield + nozzle) */
-function PumpLockLogo({ className = "w-8 h-8" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" fill="none" className={className}>
-      {/* Outer circle */}
-      <circle cx="32" cy="30" r="26" stroke="#059669" strokeWidth="3" />
-      {/* Shield — filled */}
-      <path d="M32 10 L19 17 L19 32 C19 40 32 48 32 48 C32 48 45 40 45 32 L45 17 Z"
-            fill="#059669" />
-      {/* Gas nozzle handle */}
-      <path d="M45 24 L49 24 L49 28 L47 30" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Hose curving down */}
-      <path d="M47 30 C48 32 50 33 50 36 L50 42" stroke="#059669" strokeWidth="2" strokeLinecap="round" />
-      {/* Nozzle tip */}
-      <path d="M48 42 L52 42 L52 47 L50.5 49 L49.5 47 L48 47 Z" fill="#059669" />
-    </svg>
-  );
-}
+import { PumpLockLogo } from "@/components/pumplock-logo";
 
 export default function Home() {
+  const { data: session } = useSession();
+  const router = useRouter();
   const topRef = useRef<HTMLDivElement>(null);
   const calculatorRef = useRef<HTMLDivElement>(null);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
+
+  // WHY: After signup redirect, create the plan that was stashed in sessionStorage
+  useEffect(() => {
+    if (!session) return;
+    const pending = sessionStorage.getItem("pendingPlan");
+    if (!pending) return;
+    sessionStorage.removeItem("pendingPlan");
+
+    fetch("/api/member/plans", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: pending,
+    }).then((res) => {
+      if (res.ok) router.push("/account");
+    });
+  }, [session, router]);
 
   // Calculator state
   const [calcStep, setCalcStep] = useState(1);
@@ -57,11 +61,47 @@ export default function Home() {
   const [nonUsError, setNonUsError] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<AddressResult | null>(null);
   const [localPrice, setLocalPrice] = useState<LocalPriceResult | null>(null);
+  const [cityState, setCityState] = useState("");
+  const [monthlyMiles, setMonthlyMiles] = useState(1000);
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedMake, setSelectedMake] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [makeOptions, setMakeOptions] = useState<string[]>([]);
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [vehicleMpg, setVehicleMpg] = useState<number | null>(null);
+  const [vehicleFuel, setVehicleFuel] = useState("");
+  const [vehicleLoading, setVehicleLoading] = useState(false);
   const [monthlyGallons, setMonthlyGallons] = useState(50);
   const [strikePrice, setStrikePrice] = useState(0);
   const [selectedTerm, setSelectedTerm] = useState(6);
   const [result, setResult] = useState<PricingResult | null>(null);
   const [tiers, setTiers] = useState<TierRow[]>([]);
+  const [tiers1mo, setTiers1mo] = useState<TierRow[]>([]);
+  const [tiers3mo, setTiers3mo] = useState<TierRow[]>([]);
+
+  // WHY: Fetch admin-controlled pricing config so changes in the admin panel
+  // are reflected in consumer quotes without code changes.
+  const [pricingVolatility, setPricingVolatility] = useState(DEFAULT_VOLATILITY);
+  const [pricingRate, setPricingRate] = useState(DEFAULT_RISK_FREE_RATE);
+  const [pricingOpLoad, setPricingOpLoad] = useState(0.05);
+  const [pricingProfit, setPricingProfit] = useState(0.03);
+  const [pricingAdvSel, setPricingAdvSel] = useState(0.10);
+
+  useEffect(() => {
+    fetch("/api/pricing")
+      .then((r) => r.json())
+      .then((config) => {
+        if (config) {
+          setPricingVolatility(config.volatility);
+          setPricingRate(config.riskFreeRate);
+          setPricingOpLoad(config.operationalLoad);
+          setPricingProfit(config.profitMargin);
+          setPricingAdvSel(config.adverseSelectionLoad);
+        }
+      })
+      .catch(() => {}); // Silently use defaults if fetch fails
+  }, []);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // WHY: Debounce address lookups to respect Nominatim 1 req/sec rate limit
@@ -129,34 +169,65 @@ export default function Home() {
     calculatorRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
-  function handleLocationSubmit() {
-    // Use selected address city/state, or fall back to raw query
-    let q = "national";
-    if (selectedAddress) {
-      // WHY: Try city first for metro-level pricing, fall back to state code
-      q = selectedAddress.city || selectedAddress.stateCode;
-    } else if (locationQuery.trim()) {
-      q = locationQuery.trim();
-    }
-    const price = lookupPrice(q);
-    // WHY: If city didn't match a metro, try state code for state-level pricing
-    if (price.source === "national" && selectedAddress?.stateCode) {
-      const statePrice = lookupPrice(selectedAddress.stateCode);
-      if (statePrice.source === "state") {
-        setLocalPrice(statePrice);
-        setStrikePrice(Math.round((statePrice.price + 0.50) * 100) / 100);
-        setCalcStep(2);
-        return;
+  async function handleLocationSubmit() {
+    const zip = locationQuery.replace(/\D/g, "");
+    if (zip.length !== 5) return;
+
+    // WHY: Fetch live AAA pricing and city name in parallel for speed.
+    let livePrice: number | null = null;
+    let stateCode = "";
+    let city = "";
+    let state = "";
+
+    const [priceRes, geoRes] = await Promise.allSettled([
+      fetch(`/api/gas-price?zip=${zip}`),
+      fetch(`https://nominatim.openstreetmap.org/search?${new URLSearchParams({
+        postalcode: zip, country: "us", format: "json", addressdetails: "1", limit: "1",
+      })}`, { headers: { "User-Agent": "PumpLock/1.0 (mypumplock.com)" } }),
+    ]);
+
+    // Extract live price from AAA
+    if (priceRes.status === "fulfilled" && priceRes.value.ok) {
+      const data = await priceRes.value.json();
+      if (data.price) {
+        livePrice = data.price;
+        stateCode = data.stateCode || "";
       }
     }
-    setLocalPrice(price);
-    setStrikePrice(Math.round((price.price + 0.50) * 100) / 100);
+
+    // Extract city/state from Nominatim
+    if (geoRes.status === "fulfilled" && geoRes.value.ok) {
+      const data = await geoRes.value.json();
+      if (data.length > 0) {
+        const addr = data[0].address;
+        city = addr.city || addr.town || addr.village || addr.county || "";
+        state = addr.state || "";
+      }
+    }
+
+    // Use live price if available, otherwise fall back to hardcoded
+    let finalPrice: number;
+    let areaName: string;
+
+    if (livePrice) {
+      finalPrice = livePrice;
+      areaName = stateCode;
+    } else {
+      const fallback = lookupPrice(zip);
+      if (fallback.source === "national") return;
+      finalPrice = fallback.price;
+      areaName = fallback.areaName;
+    }
+
+    if (city && state) setCityState(`${city}, ${state}`);
+    else if (state) setCityState(state);
+    else setCityState(areaName);
+
+    setLocalPrice({ price: finalPrice, areaName, source: "state" });
+    setStrikePrice(Math.round((finalPrice + 0.50) * 100) / 100);
     setCalcStep(2);
   }
 
-  function handleGallonsSubmit() {
-    setCalcStep(3);
-  }
 
   function computeQuote(termMonths: number) {
     if (!localPrice) return;
@@ -165,27 +236,26 @@ export default function Home() {
       spotPrice: localPrice.price,
       strikePrice,
       gallonsPerMonth: monthlyGallons,
-      volatility: DEFAULT_VOLATILITY,
-      riskFreeRate: DEFAULT_RISK_FREE_RATE,
+      volatility: pricingVolatility,
+      riskFreeRate: pricingRate,
       currentMonth,
       termMonths,
+      operationalLoad: pricingOpLoad,
+      profitMargin: pricingProfit,
+      adverseSelectionLoad: pricingAdvSel,
     });
     setResult(pricingResult);
-    setTiers(
-      generateTierComparison(
-        localPrice.price,
-        monthlyGallons,
-        DEFAULT_VOLATILITY,
-        DEFAULT_RISK_FREE_RATE,
-        currentMonth,
-        termMonths
-      )
+    const genTiers = (months: number) => generateTierComparison(
+      localPrice.price, monthlyGallons, pricingVolatility, pricingRate, currentMonth, months
     );
+    setTiers1mo(genTiers(1));
+    setTiers3mo(genTiers(3));
+    setTiers(genTiers(termMonths));
   }
 
   function handleGetQuote() {
     computeQuote(selectedTerm);
-    setCalcStep(4);
+    setCalcStep(5);
   }
 
   function handleTermChange(months: number) {
@@ -196,12 +266,24 @@ export default function Home() {
   function handleStartOver() {
     setCalcStep(1);
     setLocalPrice(null);
+    setCityState("");
     setResult(null);
     setTiers([]);
+    setTiers1mo([]);
+    setTiers3mo([]);
     setLocationQuery("");
     setSelectedAddress(null);
     setAddressResults([]);
     setNonUsError(false);
+    setMonthlyMiles(1000);
+    setSelectedYear("");
+    setSelectedMake("");
+    setSelectedModel("");
+    setMakeOptions([]);
+    setModelOptions([]);
+    setVehicleMpg(null);
+    setVehicleFuel("");
+    setVehicleLoading(false);
     setMonthlyGallons(50);
     setSelectedTerm(6);
   }
@@ -233,6 +315,55 @@ export default function Home() {
     },
   ];
 
+  // WHY: When user clicks "Get Protected", either create the plan (if logged in)
+  // or redirect to signup with a callback that creates it after auth.
+  async function handleGetProtected() {
+    if (!result || !localPrice) return;
+
+    const planData = {
+      spotPrice: localPrice.price,
+      strikePrice: result.strikePrice,
+      termMonths: selectedTerm,
+      gallonsPerMonth: monthlyGallons,
+      premiumPerGallon: result.totalPremiumPerGallon,
+      upfrontPrice: result.upfrontPrice,
+      monthlyEquivalent: result.monthlyEquivalent,
+      vehicleYear: selectedYear ? parseInt(selectedYear) : null,
+      vehicleMake: selectedMake || null,
+      vehicleModel: selectedModel || null,
+      vehicleMpg: vehicleMpg,
+      monthlyMiles: monthlyMiles,
+      fuelType: vehicleFuel || null,
+      zip: locationQuery.replace(/\D/g, ""),
+      cityState: cityState || null,
+      stateCode: localPrice.areaName || null,
+    };
+
+    if (!session) {
+      // Store plan data in sessionStorage so we can create it after signup
+      sessionStorage.setItem("pendingPlan", JSON.stringify(planData));
+      router.push("/signup?callbackUrl=/");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/member/plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      });
+
+      if (res.ok) {
+        router.push("/account");
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to create plan");
+      }
+    } catch {
+      alert("Something went wrong. Please try again.");
+    }
+  }
+
   return (
     <div ref={topRef} className="min-h-screen bg-gray-50 text-gray-900">
       {/* ── Nav ── */}
@@ -242,17 +373,36 @@ export default function Home() {
             <PumpLockLogo className="w-8 h-8" />
             <span className="text-lg font-bold text-gray-900 tracking-tight">PumpLock</span>
           </button>
-          <div className="hidden sm:flex items-center gap-6 text-sm text-gray-500">
-            <a href="#how-it-works" className="hover:text-gray-900 transition">How It Works</a>
-            <a href="#calculator" className="hover:text-gray-900 transition">Get a Quote</a>
-            <a href="#faq" className="hover:text-gray-900 transition">FAQ</a>
+          <div className="hidden sm:flex items-center gap-1 text-sm font-medium text-gray-600">
+            <a href="#how-it-works" className="px-4 py-2 rounded-full hover:bg-emerald-50 hover:text-emerald-700 transition">How It Works</a>
+            <span className="text-gray-300">·</span>
+            <a href="#calculator" className="px-4 py-2 rounded-full hover:bg-emerald-50 hover:text-emerald-700 transition">Get a Quote</a>
+            <span className="text-gray-300">·</span>
+            <a href="#faq" className="px-4 py-2 rounded-full hover:bg-emerald-50 hover:text-emerald-700 transition">FAQ</a>
           </div>
-          <button
-            onClick={scrollToCalculator}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition"
-          >
-            Get Protected
-          </button>
+          <div className="flex items-center gap-3">
+            {session ? (
+              <a
+                href="/account"
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-emerald-700 rounded-full hover:bg-emerald-50 transition"
+              >
+                My Account
+              </a>
+            ) : (
+              <button
+                onClick={() => signIn()}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-emerald-700 rounded-full hover:bg-emerald-50 transition"
+              >
+                Log In
+              </button>
+            )}
+            <button
+              onClick={scrollToCalculator}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition"
+            >
+              Get Protected
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -261,18 +411,14 @@ export default function Home() {
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           {/* Left: text */}
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-sm mb-6">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Protection plans available now
-            </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 leading-tight tracking-tight mb-6">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 leading-tight tracking-tight mb-4">
               Never Overpay for
               <br />
               <span className="text-emerald-600">Gas Again</span>
             </h1>
             <p className="text-lg text-gray-600 max-w-lg mb-8">
               The first smart membership that caps the price you pay at the pump.
-              We track your market and pay you back when fuel costs rise.
+              We track your local price and pay you back when fuel costs rise.
               Choose the protection that fits you and lock in your gas price today.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
@@ -280,7 +426,7 @@ export default function Home() {
                 onClick={scrollToCalculator}
                 className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20"
               >
-                Get Your Quote
+                Join Now
               </button>
               <a
                 href="#how-it-works"
@@ -291,7 +437,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right: hero image — edges fade into background */}
+          {/* Right: hero image — edges fade into background via CSS mask */}
           <div className="relative hidden md:block">
             <div className="aspect-[4/3] relative">
               <Image
@@ -301,115 +447,192 @@ export default function Home() {
                 className="object-cover"
                 sizes="(min-width: 768px) 50vw, 100vw"
                 priority
+                style={{
+                  /* WHY: A radial-gradient mask fades all edges to transparent smoothly,
+                     eliminating any visible border between the photo and the background. */
+                  mask: "radial-gradient(ellipse 77% 72% at center, black 30%, transparent 75%)",
+                  WebkitMask: "radial-gradient(ellipse 77% 72% at center, black 30%, transparent 75%)",
+                }}
               />
-              {/* WHY: Four gradient overlays on each edge dissolve the photo into
-                  the hero background (emerald-50→white) without a hard border. */}
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-50 via-transparent to-transparent w-1/4" />
-              <div className="absolute inset-0 bg-gradient-to-l from-white/80 via-transparent to-transparent" style={{ left: "60%" }} />
-              <div className="absolute inset-0 bg-gradient-to-b from-emerald-50 via-transparent to-transparent h-1/4" />
-              <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-white via-white/70 to-transparent" />
-              {/* Subtle emerald tint */}
-              <div className="absolute inset-0 bg-emerald-600/5" />
-              {/* Price protection badge */}
-              <div className="absolute bottom-8 left-4 right-4 flex justify-center">
-                <div className="bg-white/90 backdrop-blur rounded-xl px-5 py-3 shadow-md flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-emerald-600" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm text-gray-700">
-                    You pay your locked price. <span className="font-semibold text-emerald-600">We cover the rest.</span>
-                  </p>
+            </div>
+            {/* WHY: Badge placed outside the image container and pinned to the bottom
+                of the column so it visually aligns with the CTA buttons on the left. */}
+            <div className="absolute bottom-0 left-4 right-4 flex justify-center">
+              <div className="bg-white/90 backdrop-blur rounded-xl px-5 py-3 shadow-md flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-emerald-600" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                  </svg>
                 </div>
+                <p className="text-sm text-gray-700">
+                  You pay your locked price. <span className="font-semibold text-emerald-600">We cover the rest.</span>
+                </p>
               </div>
             </div>
-            {/* Photo credit — Unsplash license requires attribution */}
-            <p className="text-[10px] text-gray-400 mt-2 text-right">
-              Photo by <a href="https://unsplash.com/@enginakyurt" className="underline hover:text-gray-600" target="_blank" rel="noopener noreferrer">Engin Akyurt</a> on Unsplash
-            </p>
           </div>
         </div>
       </section>
 
       {/* ── Example Savings ── */}
-      <section className="py-16 px-4 border-t border-gray-200">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid sm:grid-cols-3 gap-6">
-            <div className="text-center p-8 rounded-2xl bg-white border border-gray-200 shadow-sm">
-              <p className="text-3xl font-black text-red-600 mb-2">$4.50</p>
-              <p className="text-sm text-gray-500">Gas spikes to</p>
+      <section className="relative py-20 px-4 border-t border-gray-200 overflow-hidden">
+        {/* Background video */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/pump-counter.mp4" type="video/mp4" />
+        </video>
+        {/* WHY: Dark overlay so the white text and cards remain legible over the video. */}
+        <div className="absolute inset-0 bg-gray-900/75" />
+
+        <div className="relative max-w-3xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-10">
+            When Gas Prices Go Up, Your Price Doesn&apos;t
+          </h2>
+          {/* Your plan card */}
+          <div className="text-center px-8 py-5 rounded-2xl bg-white/10 border border-white/20 backdrop-blur max-w-sm mx-auto mb-8">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-300 mb-1">My 3 Month PumpLock Max Price</p>
+            <p className="text-4xl font-black text-white">$3.50<span className="text-lg font-semibold text-gray-300">/gal</span></p>
+            <p className="text-xs text-gray-400 mt-1">100 gallons per month</p>
+          </div>
+
+          {/* Month-by-month breakdown */}
+          <div className="grid sm:grid-cols-3 gap-4 mb-6">
+            {/* Month 1 */}
+            <div className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur px-6 py-5">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+                <span className="text-sm font-bold text-white">Month <span className="text-lg">1</span> of 3</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">rising</span>
+              </div>
+              <div className="flex items-baseline justify-between mb-1">
+                <span className="text-sm text-gray-300">Avg pump price</span>
+                <span className="text-lg font-bold text-red-400">$3.75</span>
+              </div>
+              <div className="flex items-baseline justify-between mb-1">
+                <span className="text-sm text-gray-300">Overage/gal</span>
+                <span className="text-lg font-bold text-white">$0.25</span>
+              </div>
+              <div className="border-t border-white/10 mt-3 pt-3 flex items-baseline justify-between">
+                <span className="text-sm font-semibold text-emerald-300">Your payout</span>
+                <span className="text-2xl font-black text-emerald-400">$25</span>
+              </div>
             </div>
-            <div className="text-center p-8 rounded-2xl bg-white border border-gray-200 shadow-sm">
-              <p className="text-3xl font-black text-gray-900 mb-2">$3.50</p>
-              <p className="text-sm text-gray-500">Your locked max price</p>
+            {/* Month 2 */}
+            <div className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur px-6 py-5">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+                <span className="text-sm font-bold text-white">Month <span className="text-lg">2</span> of 3</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-yellow-500">climbing</span>
+              </div>
+              <div className="flex items-baseline justify-between mb-1">
+                <span className="text-sm text-gray-300">Avg pump price</span>
+                <span className="text-lg font-bold text-red-400">$4.00</span>
+              </div>
+              <div className="flex items-baseline justify-between mb-1">
+                <span className="text-sm text-gray-300">Overage/gal</span>
+                <span className="text-lg font-bold text-white">$0.50</span>
+              </div>
+              <div className="border-t border-white/10 mt-3 pt-3 flex items-baseline justify-between">
+                <span className="text-sm font-semibold text-emerald-300">Your payout</span>
+                <span className="text-2xl font-black text-emerald-400">$50</span>
+              </div>
             </div>
-            <div className="text-center p-8 rounded-2xl bg-emerald-50 border border-emerald-200 shadow-sm">
-              <p className="text-3xl font-black text-emerald-600 mb-2">$1.00</p>
-              <p className="text-sm text-emerald-700">We pay you per gallon</p>
+            {/* Month 3 */}
+            <div className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur px-6 py-5">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+                <span className="text-sm font-bold text-white">Month <span className="text-lg">3</span> of 3</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-red-400">spiking</span>
+              </div>
+              <div className="flex items-baseline justify-between mb-1">
+                <span className="text-sm text-gray-300">Avg pump price</span>
+                <span className="text-lg font-bold text-red-400">$4.25</span>
+              </div>
+              <div className="flex items-baseline justify-between mb-1">
+                <span className="text-sm text-gray-300">Overage/gal</span>
+                <span className="text-lg font-bold text-white">$0.75</span>
+              </div>
+              <div className="border-t border-white/10 mt-3 pt-3 flex items-baseline justify-between">
+                <span className="text-sm font-semibold text-emerald-300">Your payout</span>
+                <span className="text-2xl font-black text-emerald-400">$75</span>
+              </div>
             </div>
           </div>
-          <p className="text-center text-gray-500 text-sm mt-6">
-            That&apos;s $50 back on just one month of fill-ups for a typical driver.
-          </p>
+
+          {/* Total savings */}
+          <div className="text-center px-8 py-5 rounded-2xl bg-emerald-950/60 border-2 border-emerald-400/50 backdrop-blur max-w-sm mx-auto">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-300 mb-1">Total savings over 3 months</p>
+            <p className="text-5xl font-black text-emerald-400">$150</p>
+          </div>
         </div>
       </section>
 
       {/* ── How It Works ── */}
-      <section id="how-it-works" className="py-20 px-4 bg-white border-t border-gray-200">
-        <div className="max-w-5xl mx-auto">
+      <section id="how-it-works" className="relative py-20 px-4 border-t border-gray-200 overflow-hidden">
+        {/* Background video */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/driving.mp4" type="video/mp4" />
+        </video>
+        {/* WHY: Light overlay keeps cards legible while letting the driving video show through. */}
+        <div className="absolute inset-0 bg-white/85 backdrop-blur-sm" />
+
+        <div className="relative max-w-5xl mx-auto">
+          <p className="text-sm font-semibold uppercase tracking-wider text-emerald-600 text-center mb-2">Get protected in minutes</p>
           <h2 className="text-3xl sm:text-4xl font-black text-gray-900 text-center mb-4">
             How PumpLock Works
           </h2>
-          <p className="text-gray-600 text-center mb-16 max-w-xl mx-auto">
-            Three steps. No car inspections, no paperwork, no hassle.
+          <p className="text-gray-500 text-center mb-16 max-w-lg mx-auto">
+            No car inspections. No paperwork. No hassle.
           </p>
 
-          <div className="grid sm:grid-cols-3 gap-8">
-            {[
-              {
-                step: "1",
-                title: "Enter Your Location",
-                desc: "We pull the current average gas price in your area so your plan is priced to your local market.",
-                icon: (
-                  <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" stroke="currentColor" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                  </svg>
-                ),
-              },
-              {
-                step: "2",
-                title: "Set Your Max Price",
-                desc: "Choose the most you're willing to pay per gallon, how much gas you use, and your plan length.",
-                icon: (
-                  <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" stroke="currentColor" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ),
-              },
-              {
-                step: "3",
-                title: "Pay Once, Stay Protected",
-                desc: "One upfront payment locks in your protection. If prices spike, we pay you the difference.",
-                icon: (
-                  <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" stroke="currentColor" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                  </svg>
-                ),
-              },
-            ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 mx-auto mb-4">
-                  {item.icon}
-                </div>
-                <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold mb-3">
-                  {item.step}
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">{item.title}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{item.desc}</p>
+          <div className="grid sm:grid-cols-3 gap-6 relative">
+            {/* WHY: Connecting line between steps visible on desktop only,
+                gives a timeline feel linking the three cards together. */}
+            <div className="hidden sm:block absolute top-12 left-[20%] right-[20%] h-0.5 bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200" />
+
+            {/* Step 1 */}
+            <div className="relative bg-white/90 backdrop-blur rounded-2xl border border-gray-200 p-8 text-center hover:shadow-lg hover:border-amber-200 transition-all duration-300">
+              <div className="w-16 h-16 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-600/20">
+                <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="currentColor" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                </svg>
               </div>
-            ))}
+              <span className="inline-block text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 mb-3">Step 1</span>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Enter Your Location</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">We pull the current average gas price in your area so your plan is priced to your local market.</p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="relative bg-white/90 backdrop-blur rounded-2xl border border-gray-200 p-8 text-center hover:shadow-lg hover:border-amber-200 transition-all duration-300">
+              <div className="w-16 h-16 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-600/20">
+                <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="currentColor" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="inline-block text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 mb-3">Step 2</span>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Set Your Max Price</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">Choose the most you&apos;re willing to pay per gallon, how much gas you use, and your plan length.</p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="relative bg-white/90 backdrop-blur rounded-2xl border border-gray-200 p-8 text-center hover:shadow-lg hover:border-amber-200 transition-all duration-300">
+              <div className="w-16 h-16 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-600/20">
+                <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="currentColor" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+              </div>
+              <span className="inline-block text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 mb-3">Step 3</span>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Pay Once, Stay Protected</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">One upfront payment locks in your protection. If prices spike, we pay you the difference each month.</p>
+            </div>
           </div>
         </div>
       </section>
@@ -426,7 +649,7 @@ export default function Home() {
 
           {/* Progress */}
           <div className="flex gap-1 mb-8">
-            {[1, 2, 3, 4].map((s) => (
+            {[1, 2, 3, 4, 5].map((s) => (
               <div
                 key={s}
                 className={`h-1.5 flex-1 rounded-full transition-colors ${
@@ -442,126 +665,69 @@ export default function Home() {
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-1">Where do you fill up?</h3>
                 <p className="text-gray-500 text-sm">
-                  Enter your home or work address below.
+                  Enter your zip code to get local gas prices.
                 </p>
               </div>
-              <div className="relative" ref={dropdownRef}>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Start typing your address..."
-                    value={locationQuery}
-                    onChange={(e) => handleAddressSearch(e.target.value)}
-                    onFocus={() => addressResults.length > 0 && setShowDropdown(true)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        setShowDropdown(false);
-                        handleLocationSubmit();
-                      }
-                    }}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    autoFocus
-                  />
-                  {addressLoading && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Address autocomplete dropdown */}
-                {showDropdown && addressResults.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                    {addressResults.map((addr, i) => (
-                      <button
-                        key={`${addr.city}-${addr.stateCode}-${i}`}
-                        onClick={() => handleSelectAddress(addr)}
-                        className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition flex items-center gap-3 border-b border-gray-100 last:border-b-0"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-gray-400 shrink-0" stroke="currentColor" strokeWidth="1.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                        </svg>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{addr.displayName}</p>
-                          <p className="text-xs text-gray-500">{addr.state}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Non-US error */}
-              {nonUsError && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-                  <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" stroke="currentColor" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                  </svg>
-                  <p className="text-sm text-amber-700">
-                    Sorry, PumpLock is only available in the USA currently. We&apos;re working on expanding to more countries.
-                  </p>
-                </div>
-              )}
-
-              {/* Selected address confirmation */}
-              {selectedAddress && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-emerald-600 shrink-0" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-sm text-emerald-700">
-                    <span className="font-semibold">{selectedAddress.displayName}</span> — we&apos;ll use local gas prices for this area.
-                  </p>
-                </div>
-              )}
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={5}
+                placeholder="e.g. 90210"
+                value={locationQuery}
+                onChange={(e) => {
+                  // WHY: Only allow digits so the input stays clean
+                  const val = e.target.value.replace(/\D/g, "");
+                  setLocationQuery(val);
+                  setNonUsError(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleLocationSubmit();
+                }}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
 
               <button
                 onClick={handleLocationSubmit}
-                disabled={nonUsError}
-                className={`w-full py-3 font-semibold rounded-xl transition ${
-                  nonUsError
-                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={locationQuery.length !== 5}
+                className={`px-5 py-2 text-sm font-semibold rounded-lg transition ${
+                  locationQuery.length === 5
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
                 }`}
               >
-                {selectedAddress
-                  ? "Continue with this location"
-                  : locationQuery.trim()
-                    ? "Look up my area"
-                    : "Use national average"}
+                Next
               </button>
             </div>
           )}
 
-          {/* Step 2: Gallons */}
+          {/* Step 2: Monthly Miles */}
           {calcStep === 2 && localPrice && (
             <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-1">How much gas do you use?</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">How many miles do you drive per month?</h3>
                 <p className="text-gray-500 text-sm">
-                  {localPrice.areaName} average: <span className="text-gray-900 font-semibold">${localPrice.price.toFixed(2)}/gal</span>
+                  {cityState || localPrice.areaName} — avg: <span className="text-gray-900 font-semibold">${localPrice.price.toFixed(2)}/gal</span>
                 </p>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {GALLON_PRESETS.map((preset) => (
+                {MILEAGE_PRESETS.map((preset) => (
                   <button
                     key={preset.label}
-                    onClick={() => setMonthlyGallons(preset.gallons)}
+                    onClick={() => setMonthlyMiles(preset.miles)}
                     className={`p-3 rounded-xl border text-center transition ${
-                      monthlyGallons === preset.gallons
+                      monthlyMiles === preset.miles
                         ? "border-emerald-500 bg-emerald-50"
                         : "border-gray-200 bg-gray-50 hover:border-gray-300"
                     }`}
                   >
-                    <p className={`text-lg font-bold ${monthlyGallons === preset.gallons ? "text-emerald-600" : "text-gray-900"}`}>
-                      {preset.gallons}
+                    <p className={`text-lg font-bold ${monthlyMiles === preset.miles ? "text-emerald-600" : "text-gray-900"}`}>
+                      {preset.miles.toLocaleString()}
                     </p>
-                    <p className={`text-xs ${monthlyGallons === preset.gallons ? "text-emerald-600" : "text-gray-500"}`}>
-                      gal/mo
+                    <p className={`text-xs ${monthlyMiles === preset.miles ? "text-emerald-600" : "text-gray-500"}`}>
+                      miles per month
                     </p>
-                    <p className={`text-xs mt-1 ${monthlyGallons === preset.gallons ? "text-emerald-500" : "text-gray-400"}`}>
+                    <p className={`text-xs mt-1 ${monthlyMiles === preset.miles ? "text-emerald-500" : "text-gray-400"}`}>
                       {preset.desc}
                     </p>
                   </button>
@@ -570,15 +736,15 @@ export default function Home() {
 
               <div>
                 <label className="block text-sm text-gray-500 mb-2">
-                  Or set your own: <span className="text-gray-900 font-semibold">{monthlyGallons} gal/month</span>
+                  Or set your own: <span className="text-gray-900 font-semibold">{monthlyMiles.toLocaleString()} miles per month</span>
                 </label>
                 <input
                   type="range"
-                  min={10}
-                  max={200}
-                  step={5}
-                  value={monthlyGallons}
-                  onChange={(e) => setMonthlyGallons(Number(e.target.value))}
+                  min={200}
+                  max={4000}
+                  step={100}
+                  value={monthlyMiles}
+                  onChange={(e) => setMonthlyMiles(Number(e.target.value))}
                   className="w-full accent-emerald-500"
                 />
               </div>
@@ -586,22 +752,186 @@ export default function Home() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setCalcStep(1)}
-                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition"
+                  className="px-5 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition"
                 >
                   Back
                 </button>
                 <button
-                  onClick={handleGallonsSubmit}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition"
+                  onClick={() => setCalcStep(3)}
+                  className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition"
                 >
-                  Continue
+                  Next
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step 3: Max Price */}
+          {/* Step 3: Vehicle Picker */}
           {calcStep === 3 && localPrice && (
+            <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">What do you drive?</h3>
+                <p className="text-gray-500 text-sm">
+                  We&apos;ll use your vehicle&apos;s MPG to estimate your monthly gas usage.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Year */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Year</label>
+                  <select
+                    value={selectedYear}
+                    onChange={async (e) => {
+                      const yr = e.target.value;
+                      setSelectedYear(yr);
+                      setSelectedMake("");
+                      setSelectedModel("");
+                      setMakeOptions([]);
+                      setModelOptions([]);
+                      setVehicleMpg(null);
+                      setVehicleFuel("");
+                      if (!yr) return;
+                      setVehicleLoading(true);
+                      try {
+                        const res = await fetch(`/api/vehicles?step=makes&year=${yr}`);
+                        const data = await res.json();
+                        const items = Array.isArray(data.menuItem) ? data.menuItem : data.menuItem ? [data.menuItem] : [];
+                        setMakeOptions(items.map((i: { text: string }) => i.text));
+                      } catch { setMakeOptions([]); }
+                      setVehicleLoading(false);
+                    }}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="">Select year...</option>
+                    {/* WHY: EPA data goes back to 1984 but most users have 2000+ vehicles */}
+                    {Array.from({ length: new Date().getFullYear() - 1999 + 1 }, (_, i) => new Date().getFullYear() + 1 - i).map((yr) => (
+                      <option key={yr} value={yr}>{yr}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Make */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Make</label>
+                  <select
+                    value={selectedMake}
+                    onChange={async (e) => {
+                      const make = e.target.value;
+                      setSelectedMake(make);
+                      setSelectedModel("");
+                      setModelOptions([]);
+                      setVehicleMpg(null);
+                      setVehicleFuel("");
+                      if (!make || !selectedYear) return;
+                      setVehicleLoading(true);
+                      try {
+                        const res = await fetch(`/api/vehicles?step=models&year=${selectedYear}&make=${encodeURIComponent(make)}`);
+                        const data = await res.json();
+                        const items = Array.isArray(data.menuItem) ? data.menuItem : data.menuItem ? [data.menuItem] : [];
+                        setModelOptions(items.map((i: { text: string }) => i.text));
+                      } catch { setModelOptions([]); }
+                      setVehicleLoading(false);
+                    }}
+                    disabled={!selectedYear || makeOptions.length === 0}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
+                  >
+                    <option value="">{vehicleLoading ? "Loading..." : "Select make..."}</option>
+                    {makeOptions.map((make) => (
+                      <option key={make} value={make}>{make}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Model */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Model</label>
+                  <select
+                    value={selectedModel}
+                    onChange={async (e) => {
+                      const model = e.target.value;
+                      setSelectedModel(model);
+                      setVehicleMpg(null);
+                      setVehicleFuel("");
+                      if (!model || !selectedYear || !selectedMake) return;
+                      setVehicleLoading(true);
+                      try {
+                        // WHY: Fetch options (trims) for this model, then get MPG from the first trim.
+                        // Most users don't know their exact trim — first option is a reasonable default.
+                        const optRes = await fetch(`/api/vehicles?step=options&year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(model)}`);
+                        const optData = await optRes.json();
+                        const options = Array.isArray(optData.menuItem) ? optData.menuItem : optData.menuItem ? [optData.menuItem] : [];
+                        if (options.length > 0) {
+                          const vehRes = await fetch(`/api/vehicles?step=vehicle&id=${options[0].value}`);
+                          const vehData = await vehRes.json();
+                          const mpg = parseInt(vehData.comb08);
+                          if (!isNaN(mpg) && mpg > 0) {
+                            setVehicleMpg(mpg);
+                            setVehicleFuel(vehData.fuelType1 || "");
+                          }
+                        }
+                      } catch { /* non-critical */ }
+                      setVehicleLoading(false);
+                    }}
+                    disabled={!selectedMake || modelOptions.length === 0}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
+                  >
+                    <option value="">{vehicleLoading ? "Loading..." : "Select model..."}</option>
+                    {modelOptions.map((model) => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Show estimated gallons when MPG is loaded */}
+              {vehicleMpg && vehicleMpg > 0 && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-gray-600">
+                      {vehicleMpg} MPG ({vehicleFuel}) × {monthlyMiles.toLocaleString()} mi/mo
+                    </span>
+                    <span className="text-lg font-bold text-emerald-600">
+                      ~{estimateMonthlyGallons(vehicleMpg, monthlyMiles)} gal/mo
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {vehicleLoading && (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  Loading vehicle data...
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setCalcStep(2)}
+                  className="px-5 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => {
+                    if (vehicleMpg && vehicleMpg > 0) {
+                      setMonthlyGallons(estimateMonthlyGallons(vehicleMpg, monthlyMiles));
+                    }
+                    setCalcStep(4);
+                  }}
+                  disabled={!vehicleMpg}
+                  className={`px-5 py-2 text-sm font-semibold rounded-lg transition ${
+                    vehicleMpg
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Max Price */}
+          {calcStep === 4 && localPrice && (
             <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-1">Set your price ceiling</h3>
@@ -619,6 +949,11 @@ export default function Home() {
                 <p className="text-sm text-emerald-600">
                   +${(strikePrice - localPrice.price).toFixed(2)} above current price
                 </p>
+                {strikePrice > localPrice.price && (
+                  <p className="text-xs text-gray-400 mt-2">
+                    At this ceiling, you&apos;d pay up to <span className="font-semibold text-gray-600">${((strikePrice - localPrice.price) * monthlyGallons).toFixed(2)}/mo</span> more in fuel costs ({monthlyGallons} gal &times; ${(strikePrice - localPrice.price).toFixed(2)})
+                  </p>
+                )}
               </div>
 
               <div>
@@ -645,23 +980,23 @@ export default function Home() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setCalcStep(2)}
-                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition"
+                  onClick={() => setCalcStep(3)}
+                  className="px-5 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleGetQuote}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition"
+                  className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition"
                 >
-                  See My Price
+                  Next
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step 4: Quote */}
-          {calcStep === 4 && result && localPrice && (
+          {/* Step 5: Quote */}
+          {calcStep === 5 && result && localPrice && (
             <div className="space-y-6">
               {/* Term selector */}
               <div className="flex gap-2 bg-white border border-gray-200 rounded-xl p-1.5 shadow-sm">
@@ -688,13 +1023,14 @@ export default function Home() {
               {/* Hero price card */}
               <div className="text-center p-8 sm:p-10 bg-gradient-to-b from-emerald-50 to-white border border-emerald-200 rounded-2xl shadow-sm">
                 <p className="text-sm text-emerald-600 uppercase tracking-widest mb-3">
-                  Your {result.policyMonths}-Month PumpLock Plan
+                  Your {result.policyMonths}-Month PumpLock Membership Plan
                 </p>
-                <p className="text-6xl sm:text-7xl font-black text-gray-900 mb-2">
-                  ${result.upfrontPrice.toFixed(2)}
+                <p className="text-7xl sm:text-8xl font-black text-emerald-600 mb-1">
+                  ${result.monthlyEquivalent.toFixed(2)}
                 </p>
-                <p className="text-gray-500">
-                  One payment &middot; ~${result.monthlyEquivalent.toFixed(2)}/mo
+                <p className="text-xl font-bold text-gray-900 mb-3">per month</p>
+                <p className="text-sm text-gray-500">
+                  One payment of ${result.upfrontPrice.toFixed(2)}
                 </p>
               </div>
 
@@ -735,35 +1071,63 @@ export default function Home() {
                   <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
                     Compare Protection Levels
                   </h4>
+                  <p className="text-xs text-gray-400 mt-1">Click any row to select that plan</p>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-gray-400 text-xs uppercase tracking-wider">
-                        <th className="px-5 py-3 text-left">Max Price</th>
-                        <th className="px-5 py-3 text-right">Buffer</th>
-                        <th className="px-5 py-3 text-right">{result.policyMonths}-Mo Plan</th>
-                        <th className="px-5 py-3 text-right">~Per Month</th>
+                        <th className="px-4 py-3 text-left">Max Price</th>
+                        <th className="px-4 py-3 text-right">~Per Month</th>
+                        <th className="px-4 py-3 text-right">1-Mo Plan</th>
+                        <th className="px-4 py-3 text-right">3-Mo Plan</th>
+                        <th className="px-4 py-3 text-right">6-Mo Plan</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {tiers.map((tier) => {
+                      {tiers.map((tier, i) => {
                         const isSelected = Math.abs(tier.strikePrice - result.strikePrice) < 0.01;
+                        const t1 = tiers1mo[i];
+                        const t3 = tiers3mo[i];
                         return (
                           <tr
                             key={tier.strikePrice}
-                            className={`border-t border-gray-100 ${isSelected ? "bg-emerald-50" : ""}`}
+                            onClick={() => {
+                              setStrikePrice(tier.strikePrice);
+                              // WHY: Recompute the hero quote with the clicked tier's strike price
+                              if (!localPrice) return;
+                              const currentMonth = new Date().getMonth() + 1;
+                              const newResult = priceProtectionPlan({
+                                spotPrice: localPrice.price,
+                                strikePrice: tier.strikePrice,
+                                gallonsPerMonth: monthlyGallons,
+                                volatility: pricingVolatility,
+                                riskFreeRate: pricingRate,
+                                currentMonth,
+                                termMonths: selectedTerm,
+                                operationalLoad: pricingOpLoad,
+                                profitMargin: pricingProfit,
+                                adverseSelectionLoad: pricingAdvSel,
+                              });
+                              setResult(newResult);
+                            }}
+                            className={`border-t border-gray-100 cursor-pointer transition-colors hover:bg-emerald-50/50 ${isSelected ? "bg-emerald-50" : ""}`}
                           >
-                            <td className={`px-5 py-3 font-medium ${isSelected ? "text-emerald-600" : "text-gray-900"}`}>
+                            <td className={`px-4 py-3 font-medium ${isSelected ? "text-emerald-600" : "text-gray-900"}`}>
                               ${tier.strikePrice.toFixed(2)}
                               {isSelected && <span className="ml-2 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Selected</span>}
                             </td>
-                            <td className="px-5 py-3 text-right text-gray-500">+${tier.buffer.toFixed(2)}</td>
-                            <td className={`px-5 py-3 text-right font-mono font-semibold ${isSelected ? "text-emerald-600" : "text-gray-900"}`}>
-                              ${tier.upfrontPrice.toFixed(2)}
-                            </td>
-                            <td className="px-5 py-3 text-right text-gray-500">
+                            <td className={`px-4 py-3 text-right font-semibold ${isSelected ? "text-emerald-600" : "text-gray-900"}`}>
                               ${tier.monthlyEquivalent.toFixed(2)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-500 font-mono">
+                              {t1 ? `$${t1.upfrontPrice.toFixed(2)}` : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-500 font-mono">
+                              {t3 ? `$${t3.upfrontPrice.toFixed(2)}` : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-500 font-mono">
+                              ${tier.upfrontPrice.toFixed(2)}
                             </td>
                           </tr>
                         );
@@ -775,13 +1139,16 @@ export default function Home() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={handleStartOver}
+                  onClick={() => setCalcStep(4)}
                   className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition"
                 >
-                  Start Over
+                  Back
                 </button>
-                <button className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition">
-                  Get Protected &mdash; ${result.upfrontPrice.toFixed(2)}
+                <button
+                  onClick={handleGetProtected}
+                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition"
+                >
+                  {session ? "Get Protected" : "Sign Up & Get Protected"} &mdash; ${result.upfrontPrice.toFixed(2)}
                 </button>
               </div>
             </div>
@@ -853,9 +1220,9 @@ export default function Home() {
             &copy; {new Date().getFullYear()} PumpLock. For illustration purposes. Not financial advice.
           </p>
           <div className="flex gap-4 text-xs text-gray-400">
-            <a href="#" className="hover:text-gray-600 transition">Privacy</a>
-            <a href="#" className="hover:text-gray-600 transition">Terms</a>
-            <a href="#" className="hover:text-gray-600 transition">Contact</a>
+            <a href="/privacy" className="hover:text-gray-600 transition">Privacy</a>
+            <a href="/terms" className="hover:text-gray-600 transition">Terms</a>
+            <a href="/contact" className="hover:text-gray-600 transition">Contact</a>
           </div>
         </div>
       </footer>

@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  MEMBER
+  ADMIN
+}
+
+enum PlanStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  phone        String?
+  zip          String?
+  role         Role     @default(MEMBER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  plans        Plan[]
+}
+
+model Plan {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id])
+  status          PlanStatus @default(ACTIVE)
+
+  // Pricing snapshot at time of purchase
+  spotPrice       Float
+  strikePrice     Float
+  termMonths      Int
+  gallonsPerMonth Float
+  premiumPerGallon Float
+  upfrontPrice    Float
+  monthlyEquivalent Float
+
+  // Vehicle info
+  vehicleYear     Int?
+  vehicleMake     String?
+  vehicleModel    String?
+  vehicleMpg      Float?
+  monthlyMiles    Int?
+  fuelType        String?
+
+  // Location
+  zip             String
+  cityState       String?
+  stateCode       String?
+
+  // Dates
+  startDate       DateTime @default(now())
+  endDate         DateTime
+
+  // Which pricing config was active when purchased
+  pricingConfigId String?
+  pricingConfig   PricingConfig? @relation(fields: [pricingConfigId], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([endDate])
+}
+
+model PricingConfig {
+  id                   String   @id @default(cuid())
+  label                String?  // e.g. "Launch pricing", "Summer 2026"
+  isActive             Boolean  @default(false)
+
+  // WHY: These map 1:1 to the pricing engine inputs so admins
+  // can tune them without code changes.
+  volatility           Float    @default(0.40)
+  riskFreeRate         Float    @default(0.045)
+  operationalLoad      Float    @default(0.05)  // $/gallon
+  profitMargin         Float    @default(0.03)  // $/gallon
+  adverseSelectionLoad Float    @default(0.10)  // 10% multiplier
+
+  // Seasonal adjustments stored as JSON — keys are month numbers (1-12)
+  seasonalAdjustments  Json?
+
+  createdBy            String?
+  createdAt            DateTime @default(now())
+
+  plans                Plan[]
+
+  // WHY: Only one config should be active at a time.
+  // Enforced in application logic, not DB constraint,
+  // because Postgres partial unique indexes need raw SQL.
+  @@index([isActive])
+}

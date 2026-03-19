@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   priceProtectionPlan,
   generateTierComparison,
@@ -289,98 +290,36 @@ export default function Home() {
           </div>
 
           {/* Right: hero image */}
-          {/* TODO: Replace SVG with purchased stock photo (e.g. iStock #1218785008 — hand filling fuel tank)
-               Place the image at /public/hero.jpg and swap the SVG below for:
-               <Image src="/hero.jpg" alt="Happy driver filling up at the pump" ... /> */}
           <div className="relative hidden md:block">
-            <div className="aspect-[4/3] rounded-2xl bg-gradient-to-br from-emerald-100 via-emerald-50 to-white border border-emerald-200 shadow-lg overflow-hidden flex items-center justify-center">
-              <svg viewBox="0 0 400 300" fill="none" className="w-full h-full">
-                {/* Background: gas station scene */}
-                <rect width="400" height="300" fill="#f0fdf4" />
-                {/* Sky */}
-                <rect width="400" height="180" fill="#ecfdf5" />
-                {/* Sun */}
-                <circle cx="340" cy="50" r="30" fill="#fde68a" opacity="0.6" />
-
-                {/* Gas station canopy */}
-                <rect x="40" y="80" width="280" height="8" rx="2" fill="#374151" opacity="0.3" />
-                <rect x="60" y="88" width="6" height="100" fill="#374151" opacity="0.2" />
-                <rect x="294" y="88" width="6" height="100" fill="#374151" opacity="0.2" />
-
-                {/* Gas pump */}
-                <rect x="160" y="110" width="50" height="78" rx="4" fill="#374151" opacity="0.6" />
-                <rect x="166" y="118" width="38" height="22" rx="2" fill="#059669" opacity="0.4" />
-                <text x="185" y="134" textAnchor="middle" fontSize="12" fontWeight="bold" fill="white" opacity="0.8">$3.50</text>
-                <rect x="166" y="146" width="38" height="8" rx="1" fill="#6b7280" opacity="0.3" />
-
-                {/* Hose going right to car */}
-                <path d="M210 150 C230 150 240 160 250 170 L265 185" stroke="#374151" strokeWidth="3.5" strokeLinecap="round" opacity="0.5" fill="none" />
-
-                {/* Nozzle in car */}
-                <path d="M262 182 L270 190 L266 192 L258 184 Z" fill="#374151" opacity="0.5" />
-
-                {/* Car */}
-                <g transform="translate(245, 170)">
-                  {/* Car body */}
-                  <rect x="0" y="20" width="110" height="35" rx="8" fill="#059669" opacity="0.7" />
-                  {/* Car roof */}
-                  <rect x="20" y="2" width="65" height="22" rx="6" fill="#059669" opacity="0.6" />
-                  {/* Windows */}
-                  <rect x="26" y="6" width="25" height="14" rx="3" fill="#a7f3d0" opacity="0.6" />
-                  <rect x="55" y="6" width="25" height="14" rx="3" fill="#a7f3d0" opacity="0.6" />
-                  {/* Wheels */}
-                  <circle cx="30" cy="55" r="10" fill="#374151" opacity="0.6" />
-                  <circle cx="30" cy="55" r="5" fill="#6b7280" opacity="0.4" />
-                  <circle cx="90" cy="55" r="10" fill="#374151" opacity="0.6" />
-                  <circle cx="90" cy="55" r="5" fill="#6b7280" opacity="0.4" />
-                </g>
-
-                {/* Person pumping gas — hand on nozzle */}
-                <g transform="translate(220, 120)">
-                  {/* Head */}
-                  <circle cx="15" cy="10" r="12" fill="#d4a574" opacity="0.8" />
-                  {/* Hair */}
-                  <ellipse cx="15" cy="5" rx="11" ry="7" fill="#374151" opacity="0.5" />
-                  {/* Body */}
-                  <rect x="5" y="22" width="20" height="35" rx="5" fill="#3b82f6" opacity="0.5" />
-                  {/* Arm reaching to nozzle */}
-                  <path d="M25 30 C35 35 40 45 45 55" stroke="#d4a574" strokeWidth="5" strokeLinecap="round" opacity="0.7" fill="none" />
-                  {/* Legs */}
-                  <rect x="7" y="55" width="8" height="25" rx="3" fill="#374151" opacity="0.4" />
-                  <rect x="18" y="55" width="8" height="25" rx="3" fill="#374151" opacity="0.4" />
-                  {/* Smile */}
-                  <path d="M10 14 C12 17 18 17 20 14" stroke="#374151" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" fill="none" />
-                </g>
-
-                {/* Shield protection glow */}
-                <g transform="translate(130, 20)">
-                  {/* Glow */}
-                  <ellipse cx="30" cy="35" rx="35" ry="35" fill="#059669" opacity="0.08" />
-                  {/* Shield */}
-                  <path d="M30 5 L10 14 L10 30 C10 42 30 52 30 52 C30 52 50 42 50 30 L50 14 Z" fill="#059669" />
-                  <path d="M30 18 C30 18 23 25 23 29 C23 32 26 34.5 30 34.5 C34 34.5 37 32 37 29 C37 25 30 18 30 18Z" fill="white" opacity="0.9" />
-                  {/* Checkmark */}
-                  <path d="M24 28 L28 32 L36 24" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
-                </g>
-
-                {/* Price protection visual */}
-                <g transform="translate(300, 100)">
-                  <rect x="0" y="0" width="70" height="28" rx="6" fill="white" stroke="#059669" strokeWidth="1.5" />
-                  <text x="35" y="12" textAnchor="middle" fontSize="8" fill="#6b7280">You pay</text>
-                  <text x="35" y="23" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#059669">$3.50</text>
-                </g>
-                <g transform="translate(300, 136)">
-                  <rect x="0" y="0" width="70" height="28" rx="6" fill="white" stroke="#dc2626" strokeWidth="1" opacity="0.5" />
-                  <text x="35" y="12" textAnchor="middle" fontSize="8" fill="#9ca3af">Not $4.50</text>
-                  <line x1="12" y1="20" x2="58" y2="20" stroke="#dc2626" strokeWidth="1.5" opacity="0.4" />
-                  <text x="35" y="23" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#dc2626" opacity="0.4">$4.50</text>
-                </g>
-
-                {/* Ground */}
-                <rect x="0" y="240" width="400" height="60" fill="#d1d5db" opacity="0.2" rx="0" />
-                <rect x="40" y="245" width="320" height="4" rx="2" fill="#9ca3af" opacity="0.15" />
-              </svg>
+            <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-lg border border-emerald-200 relative">
+              <Image
+                src="/hero.jpg"
+                alt="Driver filling up at the pump — protected by PumpLock"
+                fill
+                className="object-cover"
+                sizes="(min-width: 768px) 50vw, 100vw"
+                priority
+              />
+              {/* Emerald tint overlay to match brand */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-emerald-900/30 via-transparent to-emerald-600/10" />
+              {/* Price protection badge */}
+              <div className="absolute bottom-4 left-4 right-4 flex justify-center">
+                <div className="bg-white/90 backdrop-blur rounded-xl px-5 py-3 shadow-md flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-emerald-600" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    You pay your locked price. <span className="font-semibold text-emerald-600">We cover the rest.</span>
+                  </p>
+                </div>
+              </div>
             </div>
+            {/* Photo credit — Unsplash license requires attribution */}
+            <p className="text-[10px] text-gray-400 mt-2 text-right">
+              Photo by <a href="https://unsplash.com/@enginakyurt" className="underline hover:text-gray-600" target="_blank" rel="noopener noreferrer">Engin Akyurt</a> on Unsplash
+            </p>
           </div>
         </div>
       </section>

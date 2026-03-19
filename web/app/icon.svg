@@ -3,7 +3,7 @@
   <circle cx="32" cy="30" r="26" stroke="#059669" stroke-width="3" fill="none"/>
   <!-- Shield -->
   <path d="M32 10 L19 17 L19 32 C19 40 32 48 32 48 C32 48 45 40 45 32 L45 17 Z"
-        stroke="#059669" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+        fill="#059669"/>
   <!-- Gas nozzle handle attached to shield right side -->
   <path d="M45 24 L49 24 L49 28 L47 30" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Hose curving down -->

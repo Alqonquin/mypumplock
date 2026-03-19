@@ -6,6 +6,9 @@ applications:
         preBuild:
           commands:
             - npm ci
+            # WHY: Prisma 7 generates the client from the schema at build time.
+            # Without this, the build fails with missing module errors.
+            - npx prisma generate
         build:
           commands:
             - npm run build

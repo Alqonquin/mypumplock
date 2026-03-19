@@ -290,9 +290,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right: hero image */}
+          {/* Right: hero image — edges fade into background */}
           <div className="relative hidden md:block">
-            <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-lg border border-emerald-200 relative">
+            <div className="aspect-[4/3] relative">
               <Image
                 src="/hero.jpg"
                 alt="Driver filling up at the pump — protected by PumpLock"
@@ -301,10 +301,16 @@ export default function Home() {
                 sizes="(min-width: 768px) 50vw, 100vw"
                 priority
               />
-              {/* Emerald tint overlay to match brand */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-emerald-900/30 via-transparent to-emerald-600/10" />
+              {/* WHY: Four gradient overlays on each edge dissolve the photo into
+                  the hero background (emerald-50→white) without a hard border. */}
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-50 via-transparent to-transparent w-1/4" />
+              <div className="absolute inset-0 bg-gradient-to-l from-white/80 via-transparent to-transparent" style={{ left: "60%" }} />
+              <div className="absolute inset-0 bg-gradient-to-b from-emerald-50 via-transparent to-transparent h-1/4" />
+              <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-white via-white/70 to-transparent" />
+              {/* Subtle emerald tint */}
+              <div className="absolute inset-0 bg-emerald-600/5" />
               {/* Price protection badge */}
-              <div className="absolute bottom-4 left-4 right-4 flex justify-center">
+              <div className="absolute bottom-8 left-4 right-4 flex justify-center">
                 <div className="bg-white/90 backdrop-blur rounded-xl px-5 py-3 shadow-md flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                     <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-emerald-600" stroke="currentColor" strokeWidth="2">

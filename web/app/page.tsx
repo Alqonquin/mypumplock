@@ -112,26 +112,26 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* ── Nav ── */}
-      <nav className="fixed top-0 w-full z-50 bg-gray-950/80 backdrop-blur-lg border-b border-gray-800/50">
+      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-lg border-b border-gray-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
               <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
               </svg>
             </div>
-            <span className="text-lg font-bold text-white tracking-tight">PumpLock</span>
+            <span className="text-lg font-bold text-gray-900 tracking-tight">PumpLock</span>
           </div>
-          <div className="hidden sm:flex items-center gap-6 text-sm text-gray-400">
-            <a href="#how-it-works" className="hover:text-white transition">How It Works</a>
-            <a href="#calculator" className="hover:text-white transition">Get a Quote</a>
-            <a href="#faq" className="hover:text-white transition">FAQ</a>
+          <div className="hidden sm:flex items-center gap-6 text-sm text-gray-500">
+            <a href="#how-it-works" className="hover:text-gray-900 transition">How It Works</a>
+            <a href="#calculator" className="hover:text-gray-900 transition">Get a Quote</a>
+            <a href="#faq" className="hover:text-gray-900 transition">FAQ</a>
           </div>
           <button
             onClick={scrollToCalculator}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg transition"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition"
           >
             Get Protected
           </button>
@@ -139,31 +139,31 @@ export default function Home() {
       </nav>
 
       {/* ── Hero ── */}
-      <section className="pt-32 pb-20 sm:pt-40 sm:pb-28 px-4">
+      <section className="pt-32 pb-20 sm:pt-40 sm:pb-28 px-4 bg-gradient-to-b from-emerald-50 to-white">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm mb-6">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-sm mb-6">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             6-month protection plans available now
           </div>
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight mb-6">
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-gray-900 leading-tight tracking-tight mb-6">
             Never Overpay for
             <br />
-            <span className="text-emerald-400">Gas Again</span>
+            <span className="text-emerald-600">Gas Again</span>
           </h1>
-          <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-10">
+          <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto mb-10">
             Lock in your max price per gallon. If gas prices spike, we pay you the difference.
             One upfront payment. 6 months of protection.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
               onClick={scrollToCalculator}
-              className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-500/20"
+              className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20"
             >
               Get Your Quote
             </button>
             <a
               href="#how-it-works"
-              className="px-8 py-4 bg-gray-800 hover:bg-gray-700 text-white text-lg font-semibold rounded-xl transition"
+              className="px-8 py-4 bg-white hover:bg-gray-50 text-gray-700 text-lg font-semibold rounded-xl transition border border-gray-200 shadow-sm"
             >
               Learn More
             </a>
@@ -172,20 +172,20 @@ export default function Home() {
       </section>
 
       {/* ── Example Savings ── */}
-      <section className="py-16 px-4 border-t border-gray-800/50">
+      <section className="py-16 px-4 border-t border-gray-200">
         <div className="max-w-5xl mx-auto">
           <div className="grid sm:grid-cols-3 gap-6">
-            <div className="text-center p-8 rounded-2xl bg-gray-900 border border-gray-800">
-              <p className="text-3xl font-black text-red-400 mb-2">$4.50</p>
-              <p className="text-sm text-gray-400">Gas spikes to</p>
+            <div className="text-center p-8 rounded-2xl bg-white border border-gray-200 shadow-sm">
+              <p className="text-3xl font-black text-red-600 mb-2">$4.50</p>
+              <p className="text-sm text-gray-500">Gas spikes to</p>
             </div>
-            <div className="text-center p-8 rounded-2xl bg-gray-900 border border-gray-800">
-              <p className="text-3xl font-black text-white mb-2">$3.50</p>
-              <p className="text-sm text-gray-400">Your locked max price</p>
+            <div className="text-center p-8 rounded-2xl bg-white border border-gray-200 shadow-sm">
+              <p className="text-3xl font-black text-gray-900 mb-2">$3.50</p>
+              <p className="text-sm text-gray-500">Your locked max price</p>
             </div>
-            <div className="text-center p-8 rounded-2xl bg-emerald-900/30 border border-emerald-700">
-              <p className="text-3xl font-black text-emerald-400 mb-2">$1.00</p>
-              <p className="text-sm text-emerald-300/70">We pay you per gallon</p>
+            <div className="text-center p-8 rounded-2xl bg-emerald-50 border border-emerald-200 shadow-sm">
+              <p className="text-3xl font-black text-emerald-600 mb-2">$1.00</p>
+              <p className="text-sm text-emerald-700">We pay you per gallon</p>
             </div>
           </div>
           <p className="text-center text-gray-500 text-sm mt-6">
@@ -195,12 +195,12 @@ export default function Home() {
       </section>
 
       {/* ── How It Works ── */}
-      <section id="how-it-works" className="py-20 px-4 bg-gray-900/50 border-t border-gray-800/50">
+      <section id="how-it-works" className="py-20 px-4 bg-white border-t border-gray-200">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-4">
+          <h2 className="text-3xl sm:text-4xl font-black text-gray-900 text-center mb-4">
             How PumpLock Works
           </h2>
-          <p className="text-gray-400 text-center mb-16 max-w-xl mx-auto">
+          <p className="text-gray-600 text-center mb-16 max-w-xl mx-auto">
             Three steps. No car inspections, no paperwork, no hassle.
           </p>
 
@@ -239,14 +239,14 @@ export default function Home() {
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mx-auto mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 mx-auto mb-4">
                   {item.icon}
                 </div>
-                <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold mb-3">
+                <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold mb-3">
                   {item.step}
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{item.title}</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -254,12 +254,12 @@ export default function Home() {
       </section>
 
       {/* ── Calculator ── */}
-      <section id="calculator" ref={calculatorRef} className="py-20 px-4 border-t border-gray-800/50">
+      <section id="calculator" ref={calculatorRef} className="py-20 px-4 bg-gray-50 border-t border-gray-200">
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-2">
+          <h2 className="text-3xl sm:text-4xl font-black text-gray-900 text-center mb-2">
             Get Your Quote
           </h2>
-          <p className="text-gray-400 text-center mb-10">
+          <p className="text-gray-600 text-center mb-10">
             See your personalized protection plan price in seconds.
           </p>
 
@@ -269,7 +269,7 @@ export default function Home() {
               <div
                 key={s}
                 className={`h-1.5 flex-1 rounded-full transition-colors ${
-                  s <= calcStep ? "bg-emerald-500" : "bg-gray-800"
+                  s <= calcStep ? "bg-emerald-500" : "bg-gray-200"
                 }`}
               />
             ))}
@@ -277,10 +277,10 @@ export default function Home() {
 
           {/* Step 1: Location */}
           {calcStep === 1 && (
-            <div className="space-y-6 bg-gray-900 border border-gray-800 rounded-2xl p-6 sm:p-8">
+            <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
               <div>
-                <h3 className="text-xl font-bold text-white mb-1">Where do you fill up?</h3>
-                <p className="text-gray-400 text-sm">
+                <h3 className="text-xl font-bold text-gray-900 mb-1">Where do you fill up?</h3>
+                <p className="text-gray-500 text-sm">
                   We&apos;ll look up the average gas price in your area.
                 </p>
               </div>
@@ -291,7 +291,7 @@ export default function Home() {
                   value={locationQuery}
                   onChange={(e) => setLocationQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleLocationSubmit()}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   autoFocus
                 />
                 <div className="flex flex-wrap gap-2 mt-3">
@@ -299,7 +299,7 @@ export default function Home() {
                     <button
                       key={city}
                       onClick={() => { setLocationQuery(city); }}
-                      className="px-3 py-1 text-xs bg-gray-800 border border-gray-700 rounded-full text-gray-400 hover:text-white hover:border-gray-600 transition"
+                      className="px-3 py-1 text-xs bg-gray-100 border border-gray-200 rounded-full text-gray-600 hover:text-gray-900 hover:border-gray-300 transition"
                     >
                       {city}
                     </button>
@@ -308,7 +308,7 @@ export default function Home() {
               </div>
               <button
                 onClick={handleLocationSubmit}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition"
               >
                 {locationQuery.trim() ? "Look up my area" : "Use national average"}
               </button>
@@ -317,11 +317,11 @@ export default function Home() {
 
           {/* Step 2: Gallons */}
           {calcStep === 2 && localPrice && (
-            <div className="space-y-6 bg-gray-900 border border-gray-800 rounded-2xl p-6 sm:p-8">
+            <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
               <div>
-                <h3 className="text-xl font-bold text-white mb-1">How much gas do you use?</h3>
-                <p className="text-gray-400 text-sm">
-                  {localPrice.areaName} average: <span className="text-white font-semibold">${localPrice.price.toFixed(2)}/gal</span>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">How much gas do you use?</h3>
+                <p className="text-gray-500 text-sm">
+                  {localPrice.areaName} average: <span className="text-gray-900 font-semibold">${localPrice.price.toFixed(2)}/gal</span>
                 </p>
               </div>
 
@@ -332,17 +332,17 @@ export default function Home() {
                     onClick={() => setMonthlyGallons(preset.gallons)}
                     className={`p-3 rounded-xl border text-center transition ${
                       monthlyGallons === preset.gallons
-                        ? "border-emerald-500 bg-emerald-500/10"
-                        : "border-gray-700 bg-gray-800 hover:border-gray-600"
+                        ? "border-emerald-500 bg-emerald-50"
+                        : "border-gray-200 bg-gray-50 hover:border-gray-300"
                     }`}
                   >
-                    <p className={`text-lg font-bold ${monthlyGallons === preset.gallons ? "text-emerald-400" : "text-white"}`}>
+                    <p className={`text-lg font-bold ${monthlyGallons === preset.gallons ? "text-emerald-600" : "text-gray-900"}`}>
                       {preset.gallons}
                     </p>
-                    <p className={`text-xs ${monthlyGallons === preset.gallons ? "text-emerald-400/70" : "text-gray-400"}`}>
+                    <p className={`text-xs ${monthlyGallons === preset.gallons ? "text-emerald-600" : "text-gray-500"}`}>
                       gal/mo
                     </p>
-                    <p className={`text-xs mt-1 ${monthlyGallons === preset.gallons ? "text-emerald-400/50" : "text-gray-500"}`}>
+                    <p className={`text-xs mt-1 ${monthlyGallons === preset.gallons ? "text-emerald-500" : "text-gray-400"}`}>
                       {preset.desc}
                     </p>
                   </button>
@@ -350,9 +350,9 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-2">
-                  Or set your own: <span className="text-white font-semibold">{monthlyGallons} gal/month</span>
-                  <span className="text-gray-500 ml-2">({monthlyGallons * POLICY_TERM_MONTHS} gal over 6 months)</span>
+                <label className="block text-sm text-gray-500 mb-2">
+                  Or set your own: <span className="text-gray-900 font-semibold">{monthlyGallons} gal/month</span>
+                  <span className="text-gray-400 ml-2">({monthlyGallons * POLICY_TERM_MONTHS} gal over 6 months)</span>
                 </label>
                 <input
                   type="range"
@@ -368,13 +368,13 @@ export default function Home() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setCalcStep(1)}
-                  className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-xl transition"
+                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleGallonsSubmit}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition"
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition"
                 >
                   Continue
                 </button>
@@ -384,21 +384,21 @@ export default function Home() {
 
           {/* Step 3: Max Price */}
           {calcStep === 3 && localPrice && (
-            <div className="space-y-6 bg-gray-900 border border-gray-800 rounded-2xl p-6 sm:p-8">
+            <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
               <div>
-                <h3 className="text-xl font-bold text-white mb-1">Set your price ceiling</h3>
-                <p className="text-gray-400 text-sm">
-                  Current average in {localPrice.areaName}: <span className="text-white font-semibold">${localPrice.price.toFixed(2)}/gal</span>.
+                <h3 className="text-xl font-bold text-gray-900 mb-1">Set your price ceiling</h3>
+                <p className="text-gray-500 text-sm">
+                  Current average in {localPrice.areaName}: <span className="text-gray-900 font-semibold">${localPrice.price.toFixed(2)}/gal</span>.
                   What&apos;s the most you&apos;d want to pay?
                 </p>
               </div>
 
               <div className="text-center py-4">
-                <p className="text-5xl font-black text-white mb-1">
+                <p className="text-5xl font-black text-gray-900 mb-1">
                   ${strikePrice.toFixed(2)}
-                  <span className="text-lg text-gray-400 font-normal">/gal</span>
+                  <span className="text-lg text-gray-500 font-normal">/gal</span>
                 </p>
-                <p className="text-sm text-emerald-400">
+                <p className="text-sm text-emerald-600">
                   +${(strikePrice - localPrice.price).toFixed(2)} above current price
                 </p>
               </div>
@@ -413,14 +413,14 @@ export default function Home() {
                   onChange={(e) => setStrikePrice(Number(e.target.value) / 100)}
                   className="w-full accent-emerald-500"
                 />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
                   <span>${localPrice.price.toFixed(2)} (tighter = more protection)</span>
                   <span>${(localPrice.price + 3).toFixed(2)} (wider = lower price)</span>
                 </div>
               </div>
 
               {strikePrice <= localPrice.price && (
-                <div className="p-3 bg-amber-900/20 border border-amber-800/50 rounded-xl text-sm text-amber-300">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
                   Your max is at or below the current average. You&apos;d start receiving payouts immediately, so the plan price will be higher.
                 </div>
               )}
@@ -428,13 +428,13 @@ export default function Home() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setCalcStep(2)}
-                  className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-xl transition"
+                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleGetQuote}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-lg font-bold rounded-xl transition"
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition"
                 >
                   See My Price
                 </button>
@@ -446,60 +446,60 @@ export default function Home() {
           {calcStep === 4 && result && localPrice && (
             <div className="space-y-6">
               {/* Hero price card */}
-              <div className="text-center p-8 sm:p-10 bg-gradient-to-b from-emerald-900/30 to-gray-900 border border-emerald-800/50 rounded-2xl">
-                <p className="text-sm text-emerald-400 uppercase tracking-widest mb-3">
+              <div className="text-center p-8 sm:p-10 bg-gradient-to-b from-emerald-50 to-white border border-emerald-200 rounded-2xl shadow-sm">
+                <p className="text-sm text-emerald-600 uppercase tracking-widest mb-3">
                   Your 6-Month PumpLock Plan
                 </p>
-                <p className="text-6xl sm:text-7xl font-black text-white mb-2">
+                <p className="text-6xl sm:text-7xl font-black text-gray-900 mb-2">
                   ${result.upfrontPrice.toFixed(2)}
                 </p>
-                <p className="text-gray-400">
+                <p className="text-gray-500">
                   One payment &middot; ~${result.monthlyEquivalent.toFixed(2)}/mo
                 </p>
               </div>
 
               {/* Coverage details */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">Location</p>
-                  <p className="text-white font-semibold mt-1">{localPrice.areaName}</p>
+                <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider">Location</p>
+                  <p className="text-gray-900 font-semibold mt-1">{localPrice.areaName}</p>
                 </div>
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">Current Avg</p>
-                  <p className="text-white font-semibold mt-1">${result.spotPrice.toFixed(2)}/gal</p>
+                <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider">Current Avg</p>
+                  <p className="text-gray-900 font-semibold mt-1">${result.spotPrice.toFixed(2)}/gal</p>
                 </div>
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">Your Max</p>
-                  <p className="text-emerald-400 font-semibold mt-1">${result.strikePrice.toFixed(2)}/gal</p>
+                <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider">Your Max</p>
+                  <p className="text-emerald-600 font-semibold mt-1">${result.strikePrice.toFixed(2)}/gal</p>
                 </div>
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">Gallons Covered</p>
-                  <p className="text-white font-semibold mt-1">{result.totalGallonsCovered}</p>
+                <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider">Gallons Covered</p>
+                  <p className="text-gray-900 font-semibold mt-1">{result.totalGallonsCovered}</p>
                 </div>
               </div>
 
               {/* How the payout works */}
-              <div className="p-5 bg-emerald-900/20 border border-emerald-800/40 rounded-xl">
-                <h4 className="text-sm font-semibold text-emerald-400 mb-2">How your payout works</h4>
-                <p className="text-sm text-gray-300">
-                  If gas hits <span className="text-white font-semibold">${(result.strikePrice + 1.00).toFixed(2)}/gal</span> and
-                  your max is <span className="text-emerald-400 font-semibold">${result.strikePrice.toFixed(2)}</span>, we pay
-                  you <span className="text-white font-semibold">$1.00 for every gallon</span> you buy&nbsp;&mdash;&nbsp;up
+              <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <h4 className="text-sm font-semibold text-emerald-700 mb-2">How your payout works</h4>
+                <p className="text-sm text-gray-700">
+                  If gas hits <span className="text-gray-900 font-semibold">${(result.strikePrice + 1.00).toFixed(2)}/gal</span> and
+                  your max is <span className="text-emerald-600 font-semibold">${result.strikePrice.toFixed(2)}</span>, we pay
+                  you <span className="text-gray-900 font-semibold">$1.00 for every gallon</span> you buy&nbsp;&mdash;&nbsp;up
                   to {result.gallonsPerMonth} gallons per month.
                 </p>
               </div>
 
               {/* Tier comparison */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-800">
-                  <h4 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="px-5 py-4 border-b border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
                     Compare Protection Levels
                   </h4>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-gray-500 text-xs uppercase tracking-wider">
+                      <tr className="text-gray-400 text-xs uppercase tracking-wider">
                         <th className="px-5 py-3 text-left">Max Price</th>
                         <th className="px-5 py-3 text-right">Buffer</th>
                         <th className="px-5 py-3 text-right">6-Mo Plan</th>
@@ -512,17 +512,17 @@ export default function Home() {
                         return (
                           <tr
                             key={tier.strikePrice}
-                            className={`border-t border-gray-800 ${isSelected ? "bg-emerald-500/5" : ""}`}
+                            className={`border-t border-gray-100 ${isSelected ? "bg-emerald-50" : ""}`}
                           >
-                            <td className={`px-5 py-3 font-medium ${isSelected ? "text-emerald-400" : "text-white"}`}>
+                            <td className={`px-5 py-3 font-medium ${isSelected ? "text-emerald-600" : "text-gray-900"}`}>
                               ${tier.strikePrice.toFixed(2)}
-                              {isSelected && <span className="ml-2 text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">Selected</span>}
+                              {isSelected && <span className="ml-2 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Selected</span>}
                             </td>
-                            <td className="px-5 py-3 text-right text-gray-400">+${tier.buffer.toFixed(2)}</td>
-                            <td className={`px-5 py-3 text-right font-mono font-semibold ${isSelected ? "text-emerald-400" : "text-white"}`}>
+                            <td className="px-5 py-3 text-right text-gray-500">+${tier.buffer.toFixed(2)}</td>
+                            <td className={`px-5 py-3 text-right font-mono font-semibold ${isSelected ? "text-emerald-600" : "text-gray-900"}`}>
                               ${tier.upfrontPrice.toFixed(2)}
                             </td>
-                            <td className="px-5 py-3 text-right text-gray-400">
+                            <td className="px-5 py-3 text-right text-gray-500">
                               ${tier.monthlyEquivalent.toFixed(2)}
                             </td>
                           </tr>
@@ -536,11 +536,11 @@ export default function Home() {
               <div className="flex gap-3">
                 <button
                   onClick={handleStartOver}
-                  className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-xl transition"
+                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition"
                 >
                   Start Over
                 </button>
-                <button className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-lg font-bold rounded-xl transition">
+                <button className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition">
                   Get Protected &mdash; ${result.upfrontPrice.toFixed(2)}
                 </button>
               </div>
@@ -550,19 +550,19 @@ export default function Home() {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" className="py-20 px-4 bg-gray-900/50 border-t border-gray-800/50">
+      <section id="faq" className="py-20 px-4 bg-white border-t border-gray-200">
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-black text-gray-900 text-center mb-12">
             Frequently Asked Questions
           </h2>
           <div className="space-y-3">
             {faqs.map((faq, i) => (
-              <div key={i} className="border border-gray-800 rounded-xl overflow-hidden">
+              <div key={i} className="border border-gray-200 rounded-xl overflow-hidden">
                 <button
                   onClick={() => setFaqOpen(faqOpen === i ? null : i)}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-800/50 transition"
+                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition"
                 >
-                  <span className="font-semibold text-white pr-4">{faq.q}</span>
+                  <span className="font-semibold text-gray-900 pr-4">{faq.q}</span>
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
@@ -574,7 +574,7 @@ export default function Home() {
                   </svg>
                 </button>
                 {faqOpen === i && (
-                  <div className="px-5 pb-4 text-gray-400 text-sm leading-relaxed">
+                  <div className="px-5 pb-4 text-gray-600 text-sm leading-relaxed">
                     {faq.a}
                   </div>
                 )}
@@ -585,17 +585,17 @@ export default function Home() {
       </section>
 
       {/* ── Bottom CTA ── */}
-      <section className="py-20 px-4 border-t border-gray-800/50">
+      <section className="py-20 px-4 bg-emerald-600">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
             Stop worrying about gas prices.
           </h2>
-          <p className="text-gray-400 text-lg mb-8">
+          <p className="text-emerald-100 text-lg mb-8">
             Lock in your max price today. Protection starts immediately.
           </p>
           <button
             onClick={scrollToCalculator}
-            className="px-10 py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-500/20"
+            className="px-10 py-4 bg-white hover:bg-gray-50 text-emerald-700 text-lg font-bold rounded-xl transition shadow-lg"
           >
             Get Your Quote
           </button>
@@ -603,23 +603,23 @@ export default function Home() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-gray-800 py-8 px-4">
+      <footer className="border-t border-gray-200 bg-white py-8 px-4">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-emerald-500 flex items-center justify-center">
+            <div className="w-6 h-6 rounded bg-emerald-600 flex items-center justify-center">
               <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
               </svg>
             </div>
-            <span className="text-sm font-semibold text-gray-400">PumpLock</span>
+            <span className="text-sm font-semibold text-gray-500">PumpLock</span>
           </div>
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-gray-400">
             &copy; {new Date().getFullYear()} PumpLock. For illustration purposes. Not financial advice.
           </p>
-          <div className="flex gap-4 text-xs text-gray-500">
-            <a href="#" className="hover:text-gray-300 transition">Privacy</a>
-            <a href="#" className="hover:text-gray-300 transition">Terms</a>
-            <a href="#" className="hover:text-gray-300 transition">Contact</a>
+          <div className="flex gap-4 text-xs text-gray-400">
+            <a href="#" className="hover:text-gray-600 transition">Privacy</a>
+            <a href="#" className="hover:text-gray-600 transition">Terms</a>
+            <a href="#" className="hover:text-gray-600 transition">Contact</a>
           </div>
         </div>
       </footer>

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   priceProtectionPlan,
   generateTierComparison,
-  POLICY_TERM_MONTHS,
+  TERM_OPTIONS,
   type PricingResult,
   type TierRow,
 } from "@/lib/pricing-engine";
-import { lookupPrice, getAllMetros, type LocalPriceResult } from "@/lib/gas-prices";
+import { lookupPrice, type LocalPriceResult } from "@/lib/gas-prices";
+import { searchAddresses, isNonUsAddress, type AddressResult } from "@/lib/address-search";
 
 // WHY: Normal volatility (40%) is the default for consumer-facing pricing.
 // We don't expose volatility selection to end users — it's an internal lever.
@@ -22,26 +23,130 @@ const GALLON_PRESETS = [
   { label: "Road Warrior", gallons: 120, desc: "High mileage" },
 ];
 
+/** Shield + gas nozzle logo used in nav and footer */
+function PumpLockLogo({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" fill="none" className={className}>
+      {/* Shield body */}
+      <path d="M14 2 L4 7 L4 18 C4 24 14 30 14 30 C14 30 24 24 24 18 L24 7 Z" fill="#059669" />
+      {/* Fuel drop inside shield */}
+      <path d="M14 10 C14 10 10 15 10 18 C10 20.2 11.8 22 14 22 C16.2 22 18 20.2 18 18 C18 15 14 10 14 10Z" fill="white" opacity="0.9" />
+      {/* Gas nozzle handle */}
+      <rect x="24" y="9" width="3.5" height="2.5" rx="0.5" fill="#059669" />
+      {/* Hose curving down */}
+      <path d="M27.5 11.5 C27.5 11.5 29 11.5 29 13.5 L29 21" stroke="#059669" strokeWidth="2" strokeLinecap="round" />
+      {/* Nozzle tip */}
+      <path d="M27.5 21 L30.5 21 L30.5 25 L29.5 26.5 L28.5 25 L27.5 25 Z" fill="#059669" />
+    </svg>
+  );
+}
+
 export default function Home() {
+  const topRef = useRef<HTMLDivElement>(null);
   const calculatorRef = useRef<HTMLDivElement>(null);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
 
   // Calculator state
   const [calcStep, setCalcStep] = useState(1);
   const [locationQuery, setLocationQuery] = useState("");
+  const [addressResults, setAddressResults] = useState<AddressResult[]>([]);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [nonUsError, setNonUsError] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<AddressResult | null>(null);
   const [localPrice, setLocalPrice] = useState<LocalPriceResult | null>(null);
   const [monthlyGallons, setMonthlyGallons] = useState(50);
   const [strikePrice, setStrikePrice] = useState(0);
+  const [selectedTerm, setSelectedTerm] = useState(6);
   const [result, setResult] = useState<PricingResult | null>(null);
   const [tiers, setTiers] = useState<TierRow[]>([]);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // WHY: Debounce address lookups to respect Nominatim 1 req/sec rate limit
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleAddressSearch = useCallback((query: string) => {
+    setLocationQuery(query);
+    setNonUsError(false);
+    setSelectedAddress(null);
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    if (query.trim().length < 3) {
+      setAddressResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    setAddressLoading(true);
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        const results = await searchAddresses(query);
+        if (results.length > 0) {
+          setAddressResults(results);
+          setShowDropdown(true);
+          setNonUsError(false);
+        } else {
+          setAddressResults([]);
+          // Check if it's a non-US address
+          const isNonUs = await isNonUsAddress(query);
+          setNonUsError(isNonUs);
+          setShowDropdown(false);
+        }
+      } catch {
+        setAddressResults([]);
+      } finally {
+        setAddressLoading(false);
+      }
+    }, 600); // WHY: 600ms debounce balances responsiveness with Nominatim rate limit
+  }, []);
+
+  function handleSelectAddress(addr: AddressResult) {
+    setSelectedAddress(addr);
+    setLocationQuery(addr.displayName);
+    setShowDropdown(false);
+    setNonUsError(false);
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function scrollToTop() {
+    topRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
 
   function scrollToCalculator() {
     calculatorRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
   function handleLocationSubmit() {
-    const q = locationQuery.trim() || "national";
+    // Use selected address city/state, or fall back to raw query
+    let q = "national";
+    if (selectedAddress) {
+      // WHY: Try city first for metro-level pricing, fall back to state code
+      q = selectedAddress.city || selectedAddress.stateCode;
+    } else if (locationQuery.trim()) {
+      q = locationQuery.trim();
+    }
     const price = lookupPrice(q);
+    // WHY: If city didn't match a metro, try state code for state-level pricing
+    if (price.source === "national" && selectedAddress?.stateCode) {
+      const statePrice = lookupPrice(selectedAddress.stateCode);
+      if (statePrice.source === "state") {
+        setLocalPrice(statePrice);
+        setStrikePrice(Math.round((statePrice.price + 0.50) * 100) / 100);
+        setCalcStep(2);
+        return;
+      }
+    }
     setLocalPrice(price);
     setStrikePrice(Math.round((price.price + 0.50) * 100) / 100);
     setCalcStep(2);
@@ -51,7 +156,7 @@ export default function Home() {
     setCalcStep(3);
   }
 
-  function handleGetQuote() {
+  function computeQuote(termMonths: number) {
     if (!localPrice) return;
     const currentMonth = new Date().getMonth() + 1;
     const pricingResult = priceProtectionPlan({
@@ -61,6 +166,7 @@ export default function Home() {
       volatility: DEFAULT_VOLATILITY,
       riskFreeRate: DEFAULT_RISK_FREE_RATE,
       currentMonth,
+      termMonths,
     });
     setResult(pricingResult);
     setTiers(
@@ -69,10 +175,20 @@ export default function Home() {
         monthlyGallons,
         DEFAULT_VOLATILITY,
         DEFAULT_RISK_FREE_RATE,
-        currentMonth
+        currentMonth,
+        termMonths
       )
     );
+  }
+
+  function handleGetQuote() {
+    computeQuote(selectedTerm);
     setCalcStep(4);
+  }
+
+  function handleTermChange(months: number) {
+    setSelectedTerm(months);
+    computeQuote(months);
   }
 
   function handleStartOver() {
@@ -81,13 +197,17 @@ export default function Home() {
     setResult(null);
     setTiers([]);
     setLocationQuery("");
+    setSelectedAddress(null);
+    setAddressResults([]);
+    setNonUsError(false);
     setMonthlyGallons(50);
+    setSelectedTerm(6);
   }
 
   const faqs = [
     {
       q: "What is PumpLock?",
-      a: "PumpLock is a gas price protection plan. You pay once upfront, and for the next 6 months, if gas prices in your area rise above your locked-in max price, we pay you the difference for every gallon you buy.",
+      a: "PumpLock is a gas price protection plan. You pay once upfront, and for the duration of your plan, if gas prices in your area rise above your locked-in max price, we pay you the difference for every gallon you buy.",
     },
     {
       q: "How do I get paid when prices spike?",
@@ -102,8 +222,8 @@ export default function Home() {
       a: "You pay the lower market price at the pump. Your PumpLock plan is there as a ceiling — you always pay whichever is less: the pump price or your locked max price.",
     },
     {
-      q: "Can I cancel mid-plan?",
-      a: "Plans are prepaid for 6 months and are non-refundable. This allows us to hedge your coverage upfront and keep prices low.",
+      q: "What plan lengths are available?",
+      a: "We offer 1-month, 3-month, and 6-month plans. Longer plans have a lower per-month cost. All plans are prepaid upfront so we can hedge your coverage immediately.",
     },
     {
       q: "How is the price calculated?",
@@ -112,18 +232,14 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div ref={topRef} className="min-h-screen bg-gray-50 text-gray-900">
       {/* ── Nav ── */}
       <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-lg border-b border-gray-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-            </div>
+          <button onClick={scrollToTop} className="flex items-center gap-2 hover:opacity-80 transition">
+            <PumpLockLogo className="w-8 h-8" />
             <span className="text-lg font-bold text-gray-900 tracking-tight">PumpLock</span>
-          </div>
+          </button>
           <div className="hidden sm:flex items-center gap-6 text-sm text-gray-500">
             <a href="#how-it-works" className="hover:text-gray-900 transition">How It Works</a>
             <a href="#calculator" className="hover:text-gray-900 transition">Get a Quote</a>
@@ -138,35 +254,133 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* ── Hero ── */}
-      <section className="pt-32 pb-20 sm:pt-40 sm:pb-28 px-4 bg-gradient-to-b from-emerald-50 to-white">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-sm mb-6">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            6-month protection plans available now
+      {/* ── Hero (text + image) ── */}
+      <section className="pt-28 pb-16 sm:pt-36 sm:pb-24 px-4 bg-gradient-to-b from-emerald-50 to-white">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+          {/* Left: text */}
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-sm mb-6">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Protection plans available now
+            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 leading-tight tracking-tight mb-6">
+              Never Overpay for
+              <br />
+              <span className="text-emerald-600">Gas Again</span>
+            </h1>
+            <p className="text-lg text-gray-600 max-w-lg mb-8">
+              Lock in your max price per gallon. If gas prices spike, we pay you the difference.
+              One upfront payment. Choose 1, 3, or 6 months of protection.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={scrollToCalculator}
+                className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20"
+              >
+                Get Your Quote
+              </button>
+              <a
+                href="#how-it-works"
+                className="px-8 py-4 bg-white hover:bg-gray-50 text-gray-700 text-lg font-semibold rounded-xl transition border border-gray-200 shadow-sm text-center"
+              >
+                Learn More
+              </a>
+            </div>
           </div>
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-gray-900 leading-tight tracking-tight mb-6">
-            Never Overpay for
-            <br />
-            <span className="text-emerald-600">Gas Again</span>
-          </h1>
-          <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto mb-10">
-            Lock in your max price per gallon. If gas prices spike, we pay you the difference.
-            One upfront payment. 6 months of protection.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={scrollToCalculator}
-              className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20"
-            >
-              Get Your Quote
-            </button>
-            <a
-              href="#how-it-works"
-              className="px-8 py-4 bg-white hover:bg-gray-50 text-gray-700 text-lg font-semibold rounded-xl transition border border-gray-200 shadow-sm"
-            >
-              Learn More
-            </a>
+
+          {/* Right: hero image */}
+          {/* TODO: Replace SVG with purchased stock photo (e.g. iStock #1218785008 — hand filling fuel tank)
+               Place the image at /public/hero.jpg and swap the SVG below for:
+               <Image src="/hero.jpg" alt="Happy driver filling up at the pump" ... /> */}
+          <div className="relative hidden md:block">
+            <div className="aspect-[4/3] rounded-2xl bg-gradient-to-br from-emerald-100 via-emerald-50 to-white border border-emerald-200 shadow-lg overflow-hidden flex items-center justify-center">
+              <svg viewBox="0 0 400 300" fill="none" className="w-full h-full">
+                {/* Background: gas station scene */}
+                <rect width="400" height="300" fill="#f0fdf4" />
+                {/* Sky */}
+                <rect width="400" height="180" fill="#ecfdf5" />
+                {/* Sun */}
+                <circle cx="340" cy="50" r="30" fill="#fde68a" opacity="0.6" />
+
+                {/* Gas station canopy */}
+                <rect x="40" y="80" width="280" height="8" rx="2" fill="#374151" opacity="0.3" />
+                <rect x="60" y="88" width="6" height="100" fill="#374151" opacity="0.2" />
+                <rect x="294" y="88" width="6" height="100" fill="#374151" opacity="0.2" />
+
+                {/* Gas pump */}
+                <rect x="160" y="110" width="50" height="78" rx="4" fill="#374151" opacity="0.6" />
+                <rect x="166" y="118" width="38" height="22" rx="2" fill="#059669" opacity="0.4" />
+                <text x="185" y="134" textAnchor="middle" fontSize="12" fontWeight="bold" fill="white" opacity="0.8">$3.50</text>
+                <rect x="166" y="146" width="38" height="8" rx="1" fill="#6b7280" opacity="0.3" />
+
+                {/* Hose going right to car */}
+                <path d="M210 150 C230 150 240 160 250 170 L265 185" stroke="#374151" strokeWidth="3.5" strokeLinecap="round" opacity="0.5" fill="none" />
+
+                {/* Nozzle in car */}
+                <path d="M262 182 L270 190 L266 192 L258 184 Z" fill="#374151" opacity="0.5" />
+
+                {/* Car */}
+                <g transform="translate(245, 170)">
+                  {/* Car body */}
+                  <rect x="0" y="20" width="110" height="35" rx="8" fill="#059669" opacity="0.7" />
+                  {/* Car roof */}
+                  <rect x="20" y="2" width="65" height="22" rx="6" fill="#059669" opacity="0.6" />
+                  {/* Windows */}
+                  <rect x="26" y="6" width="25" height="14" rx="3" fill="#a7f3d0" opacity="0.6" />
+                  <rect x="55" y="6" width="25" height="14" rx="3" fill="#a7f3d0" opacity="0.6" />
+                  {/* Wheels */}
+                  <circle cx="30" cy="55" r="10" fill="#374151" opacity="0.6" />
+                  <circle cx="30" cy="55" r="5" fill="#6b7280" opacity="0.4" />
+                  <circle cx="90" cy="55" r="10" fill="#374151" opacity="0.6" />
+                  <circle cx="90" cy="55" r="5" fill="#6b7280" opacity="0.4" />
+                </g>
+
+                {/* Person pumping gas — hand on nozzle */}
+                <g transform="translate(220, 120)">
+                  {/* Head */}
+                  <circle cx="15" cy="10" r="12" fill="#d4a574" opacity="0.8" />
+                  {/* Hair */}
+                  <ellipse cx="15" cy="5" rx="11" ry="7" fill="#374151" opacity="0.5" />
+                  {/* Body */}
+                  <rect x="5" y="22" width="20" height="35" rx="5" fill="#3b82f6" opacity="0.5" />
+                  {/* Arm reaching to nozzle */}
+                  <path d="M25 30 C35 35 40 45 45 55" stroke="#d4a574" strokeWidth="5" strokeLinecap="round" opacity="0.7" fill="none" />
+                  {/* Legs */}
+                  <rect x="7" y="55" width="8" height="25" rx="3" fill="#374151" opacity="0.4" />
+                  <rect x="18" y="55" width="8" height="25" rx="3" fill="#374151" opacity="0.4" />
+                  {/* Smile */}
+                  <path d="M10 14 C12 17 18 17 20 14" stroke="#374151" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" fill="none" />
+                </g>
+
+                {/* Shield protection glow */}
+                <g transform="translate(130, 20)">
+                  {/* Glow */}
+                  <ellipse cx="30" cy="35" rx="35" ry="35" fill="#059669" opacity="0.08" />
+                  {/* Shield */}
+                  <path d="M30 5 L10 14 L10 30 C10 42 30 52 30 52 C30 52 50 42 50 30 L50 14 Z" fill="#059669" />
+                  <path d="M30 18 C30 18 23 25 23 29 C23 32 26 34.5 30 34.5 C34 34.5 37 32 37 29 C37 25 30 18 30 18Z" fill="white" opacity="0.9" />
+                  {/* Checkmark */}
+                  <path d="M24 28 L28 32 L36 24" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
+                </g>
+
+                {/* Price protection visual */}
+                <g transform="translate(300, 100)">
+                  <rect x="0" y="0" width="70" height="28" rx="6" fill="white" stroke="#059669" strokeWidth="1.5" />
+                  <text x="35" y="12" textAnchor="middle" fontSize="8" fill="#6b7280">You pay</text>
+                  <text x="35" y="23" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#059669">$3.50</text>
+                </g>
+                <g transform="translate(300, 136)">
+                  <rect x="0" y="0" width="70" height="28" rx="6" fill="white" stroke="#dc2626" strokeWidth="1" opacity="0.5" />
+                  <text x="35" y="12" textAnchor="middle" fontSize="8" fill="#9ca3af">Not $4.50</text>
+                  <line x1="12" y1="20" x2="58" y2="20" stroke="#dc2626" strokeWidth="1.5" opacity="0.4" />
+                  <text x="35" y="23" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#dc2626" opacity="0.4">$4.50</text>
+                </g>
+
+                {/* Ground */}
+                <rect x="0" y="240" width="400" height="60" fill="#d1d5db" opacity="0.2" rx="0" />
+                <rect x="40" y="245" width="320" height="4" rx="2" fill="#9ca3af" opacity="0.15" />
+              </svg>
+            </div>
           </div>
         </div>
       </section>
@@ -220,7 +434,7 @@ export default function Home() {
               {
                 step: "2",
                 title: "Set Your Max Price",
-                desc: "Choose the most you're willing to pay per gallon and how much gas you use each month.",
+                desc: "Choose the most you're willing to pay per gallon, how much gas you use, and your plan length.",
                 icon: (
                   <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" stroke="currentColor" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -230,7 +444,7 @@ export default function Home() {
               {
                 step: "3",
                 title: "Pay Once, Stay Protected",
-                desc: "One upfront payment locks in your protection for 6 full months. If prices spike, we pay you the difference.",
+                desc: "One upfront payment locks in your protection. If prices spike, we pay you the difference.",
                 icon: (
                   <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" stroke="currentColor" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
@@ -281,36 +495,94 @@ export default function Home() {
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-1">Where do you fill up?</h3>
                 <p className="text-gray-500 text-sm">
-                  We&apos;ll look up the average gas price in your area.
+                  Enter your home or work address below.
                 </p>
               </div>
-              <div>
-                <input
-                  type="text"
-                  placeholder="City (Miami) or state code (FL)..."
-                  value={locationQuery}
-                  onChange={(e) => setLocationQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleLocationSubmit()}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  autoFocus
-                />
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {["Miami", "Houston", "LA", "Chicago", "NYC", "Atlanta"].map((city) => (
-                    <button
-                      key={city}
-                      onClick={() => { setLocationQuery(city); }}
-                      className="px-3 py-1 text-xs bg-gray-100 border border-gray-200 rounded-full text-gray-600 hover:text-gray-900 hover:border-gray-300 transition"
-                    >
-                      {city}
-                    </button>
-                  ))}
+              <div className="relative" ref={dropdownRef}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Start typing your address..."
+                    value={locationQuery}
+                    onChange={(e) => handleAddressSearch(e.target.value)}
+                    onFocus={() => addressResults.length > 0 && setShowDropdown(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        setShowDropdown(false);
+                        handleLocationSubmit();
+                      }
+                    }}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    autoFocus
+                  />
+                  {addressLoading && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
                 </div>
+
+                {/* Address autocomplete dropdown */}
+                {showDropdown && addressResults.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                    {addressResults.map((addr, i) => (
+                      <button
+                        key={`${addr.city}-${addr.stateCode}-${i}`}
+                        onClick={() => handleSelectAddress(addr)}
+                        className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition flex items-center gap-3 border-b border-gray-100 last:border-b-0"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-gray-400 shrink-0" stroke="currentColor" strokeWidth="1.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                        </svg>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{addr.displayName}</p>
+                          <p className="text-xs text-gray-500">{addr.state}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Non-US error */}
+              {nonUsError && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                  <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" stroke="currentColor" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                  <p className="text-sm text-amber-700">
+                    Sorry, PumpLock is only available in the USA currently. We&apos;re working on expanding to more countries.
+                  </p>
+                </div>
+              )}
+
+              {/* Selected address confirmation */}
+              {selectedAddress && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-emerald-600 shrink-0" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-emerald-700">
+                    <span className="font-semibold">{selectedAddress.displayName}</span> — we&apos;ll use local gas prices for this area.
+                  </p>
+                </div>
+              )}
+
               <button
                 onClick={handleLocationSubmit}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition"
+                disabled={nonUsError}
+                className={`w-full py-3 font-semibold rounded-xl transition ${
+                  nonUsError
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                }`}
               >
-                {locationQuery.trim() ? "Look up my area" : "Use national average"}
+                {selectedAddress
+                  ? "Continue with this location"
+                  : locationQuery.trim()
+                    ? "Look up my area"
+                    : "Use national average"}
               </button>
             </div>
           )}
@@ -352,7 +624,6 @@ export default function Home() {
               <div>
                 <label className="block text-sm text-gray-500 mb-2">
                   Or set your own: <span className="text-gray-900 font-semibold">{monthlyGallons} gal/month</span>
-                  <span className="text-gray-400 ml-2">({monthlyGallons * POLICY_TERM_MONTHS} gal over 6 months)</span>
                 </label>
                 <input
                   type="range"
@@ -445,10 +716,32 @@ export default function Home() {
           {/* Step 4: Quote */}
           {calcStep === 4 && result && localPrice && (
             <div className="space-y-6">
+              {/* Term selector */}
+              <div className="flex gap-2 bg-white border border-gray-200 rounded-xl p-1.5 shadow-sm">
+                {TERM_OPTIONS.map((term) => (
+                  <button
+                    key={term.months}
+                    onClick={() => handleTermChange(term.months)}
+                    className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition ${
+                      selectedTerm === term.months
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="block">{term.label}</span>
+                    <span className={`block text-xs font-normal mt-0.5 ${
+                      selectedTerm === term.months ? "text-emerald-100" : "text-gray-400"
+                    }`}>
+                      {term.desc}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
               {/* Hero price card */}
               <div className="text-center p-8 sm:p-10 bg-gradient-to-b from-emerald-50 to-white border border-emerald-200 rounded-2xl shadow-sm">
                 <p className="text-sm text-emerald-600 uppercase tracking-widest mb-3">
-                  Your 6-Month PumpLock Plan
+                  Your {result.policyMonths}-Month PumpLock Plan
                 </p>
                 <p className="text-6xl sm:text-7xl font-black text-gray-900 mb-2">
                   ${result.upfrontPrice.toFixed(2)}
@@ -502,7 +795,7 @@ export default function Home() {
                       <tr className="text-gray-400 text-xs uppercase tracking-wider">
                         <th className="px-5 py-3 text-left">Max Price</th>
                         <th className="px-5 py-3 text-right">Buffer</th>
-                        <th className="px-5 py-3 text-right">6-Mo Plan</th>
+                        <th className="px-5 py-3 text-right">{result.policyMonths}-Mo Plan</th>
                         <th className="px-5 py-3 text-right">~Per Month</th>
                       </tr>
                     </thead>
@@ -605,14 +898,10 @@ export default function Home() {
       {/* ── Footer ── */}
       <footer className="border-t border-gray-200 bg-white py-8 px-4">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-emerald-600 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-            </div>
+          <button onClick={scrollToTop} className="flex items-center gap-2 hover:opacity-80 transition">
+            <PumpLockLogo className="w-6 h-6" />
             <span className="text-sm font-semibold text-gray-500">PumpLock</span>
-          </div>
+          </button>
           <p className="text-xs text-gray-400">
             &copy; {new Date().getFullYear()} PumpLock. For illustration purposes. Not financial advice.
           </p>

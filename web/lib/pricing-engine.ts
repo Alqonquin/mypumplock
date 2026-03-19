@@ -34,7 +34,15 @@ function normPdf(x: number): number {
 
 // --- Constants ---
 
-export const POLICY_TERM_MONTHS = 6;
+export const POLICY_TERM_MONTHS = 6; // Default term; kept for backward compat
+
+// WHY: Shorter terms have lower absolute cost but higher per-month cost.
+// 1-month lets users "try it out"; 6-month is best per-month value.
+export const TERM_OPTIONS = [
+  { months: 1, label: "1 Month", desc: "Try it out" },
+  { months: 3, label: "3 Months", desc: "Seasonal coverage" },
+  { months: 6, label: "6 Months", desc: "Best value" },
+] as const;
 
 export const VOLATILITY_PRESETS = {
   low: { value: 0.25, label: "Low", desc: "Calm market" },
@@ -72,6 +80,7 @@ export interface PricingInputs {
   volatility: number;
   riskFreeRate: number;
   currentMonth: number;
+  termMonths?: number; // Defaults to POLICY_TERM_MONTHS (6)
   operationalLoad?: number;
   profitMargin?: number;
   adverseSelectionLoad?: number;
@@ -174,8 +183,9 @@ export function priceProtectionPlan(inputs: PricingInputs): PricingResult {
   const opLoad = inputs.operationalLoad ?? DEFAULT_OPERATIONAL_LOAD;
   const profitMargin = inputs.profitMargin ?? DEFAULT_PROFIT_MARGIN;
   const advSelLoad = inputs.adverseSelectionLoad ?? DEFAULT_ADVERSE_SELECTION_LOAD;
+  const termMonths = inputs.termMonths ?? POLICY_TERM_MONTHS;
 
-  const t = POLICY_TERM_MONTHS / 12;
+  const t = termMonths / 12;
   const seasonalQ = SEASONAL_ADJUSTMENTS[inputs.currentMonth] ?? 0;
 
   const { price: callPrice, d1, d2 } = blackScholesCall(
@@ -202,7 +212,7 @@ export function priceProtectionPlan(inputs: PricingInputs): PricingResult {
   const seasonalContribution = fairValue - Math.max(noSeasonalPrice, 0);
 
   const totalPerGallon = fairValue + adverseAdj + opLoad + profitMargin;
-  const totalGallons = inputs.gallonsPerMonth * POLICY_TERM_MONTHS;
+  const totalGallons = inputs.gallonsPerMonth * termMonths;
   const upfrontPrice = totalPerGallon * totalGallons;
 
   const greeks = computeGreeks(
@@ -227,10 +237,10 @@ export function priceProtectionPlan(inputs: PricingInputs): PricingResult {
     profitMarginPerGallon: round4(profitMargin),
     totalPremiumPerGallon: round4(totalPerGallon),
     upfrontPrice: round2(upfrontPrice),
-    monthlyEquivalent: round2(upfrontPrice / POLICY_TERM_MONTHS),
+    monthlyEquivalent: round2(upfrontPrice / termMonths),
     totalGallonsCovered: Math.round(totalGallons * 10) / 10,
     gallonsPerMonth: inputs.gallonsPerMonth,
-    policyMonths: POLICY_TERM_MONTHS,
+    policyMonths: termMonths,
     delta: round4(greeks.delta),
     gamma: round4(greeks.gamma),
     vega: round4(greeks.vega),
@@ -265,7 +275,8 @@ export function generateTierComparison(
   gallonsPerMonth: number,
   volatility: number,
   riskFreeRate: number,
-  currentMonth: number
+  currentMonth: number,
+  termMonths?: number
 ): TierRow[] {
   const offsets = [0.10, 0.25, 0.50, 0.75, 1.0, 1.5, 2.0];
   return offsets.map((offset) => {
@@ -277,6 +288,7 @@ export function generateTierComparison(
       volatility,
       riskFreeRate,
       currentMonth,
+      termMonths,
     });
     return {
       strikePrice: strike,

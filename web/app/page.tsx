@@ -24,20 +24,21 @@ const GALLON_PRESETS = [
   { label: "Road Warrior", gallons: 120, desc: "High mileage" },
 ];
 
-/** Shield + gas nozzle logo used in nav and footer */
+/** Shield + gas nozzle logo — matches PumpLock brand logo (circle + shield + nozzle) */
 function PumpLockLogo({ className = "w-8 h-8" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" fill="none" className={className}>
-      {/* Shield body */}
-      <path d="M14 2 L4 7 L4 18 C4 24 14 30 14 30 C14 30 24 24 24 18 L24 7 Z" fill="#059669" />
-      {/* Fuel drop inside shield */}
-      <path d="M14 10 C14 10 10 15 10 18 C10 20.2 11.8 22 14 22 C16.2 22 18 20.2 18 18 C18 15 14 10 14 10Z" fill="white" opacity="0.9" />
+    <svg viewBox="0 0 64 64" fill="none" className={className}>
+      {/* Outer circle */}
+      <circle cx="32" cy="30" r="26" stroke="#059669" strokeWidth="3" />
+      {/* Shield outline */}
+      <path d="M32 10 L19 17 L19 32 C19 40 32 48 32 48 C32 48 45 40 45 32 L45 17 Z"
+            stroke="#059669" strokeWidth="2.5" strokeLinejoin="round" />
       {/* Gas nozzle handle */}
-      <rect x="24" y="9" width="3.5" height="2.5" rx="0.5" fill="#059669" />
+      <path d="M45 24 L49 24 L49 28 L47 30" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       {/* Hose curving down */}
-      <path d="M27.5 11.5 C27.5 11.5 29 11.5 29 13.5 L29 21" stroke="#059669" strokeWidth="2" strokeLinecap="round" />
+      <path d="M47 30 C48 32 50 33 50 36 L50 42" stroke="#059669" strokeWidth="2" strokeLinecap="round" />
       {/* Nozzle tip */}
-      <path d="M27.5 21 L30.5 21 L30.5 25 L29.5 26.5 L28.5 25 L27.5 25 Z" fill="#059669" />
+      <path d="M48 42 L52 42 L52 47 L50.5 49 L49.5 47 L48 47 Z" fill="#059669" />
     </svg>
   );
 }

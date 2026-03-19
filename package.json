@@ -1,5 +1,8 @@
 {
   "name": "mypumplock",
   "version": "0.1.0",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "next": "^15.3.0"
+  }
 }

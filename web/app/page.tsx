@@ -271,8 +271,9 @@ export default function Home() {
               <span className="text-emerald-600">Gas Again</span>
             </h1>
             <p className="text-lg text-gray-600 max-w-lg mb-8">
-              Lock in your max price per gallon. If gas prices spike, we pay you the difference.
-              One upfront payment. Choose 1, 3, or 6 months of protection.
+              The first smart membership that caps the price you pay at the pump.
+              We track your market and pay you back when fuel costs rise.
+              Choose the protection that fits you and lock in your gas price today.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <button

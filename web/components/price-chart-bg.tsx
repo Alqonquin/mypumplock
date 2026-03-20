@@ -254,7 +254,7 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       ctx.textAlign = "left";
 
       // ── PumpLock logo (shield + nozzle) ──
-      const logoSize = 22;
+      const logoSize = 36;
       const logoX = rebBoxX + rebBoxW - rebPad - logoSize;
       const logoY = rebBoxY + rebPad;
       const ls = logoSize / 64; // scale factor from 64x64 viewBox

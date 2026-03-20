@@ -36,6 +36,9 @@ export function PriceChartBg() {
     let h = 0;
     let prices: number[] = [];
     let offset = 0;
+    // WHY: Accumulates the rebate over time as the price exceeds the locked price.
+    // Grows every frame the price is above the line — resets on resize.
+    let rebateTotal = 0;
 
     function generatePrice(prev: number): number {
       // WHY: Combines upward drift with mean-reversion to a ceiling around 0.75.
@@ -215,6 +218,65 @@ export function PriceChartBg() {
       ctx.font = "14px sans-serif";
       ctx.fillStyle = "rgba(239, 68, 68, 0.35)";
       ctx.fillText("YOUR LOCKED PRICE", w - 195, strikeY - 5);
+
+      // ── Rebate box (upper-right, shows savings growing) ──
+      // WHY: Visually demonstrates the PumpLock value prop — as the price
+      // rises above the locked line, your rebate accumulates in real time.
+      const lockedPriceFrac = 0.45; // corresponds to strikeY at 0.55
+      const lockedDisplayPrice = 2.00 + lockedPriceFrac * 2.50;
+      const overage = displayPrice - lockedDisplayPrice;
+
+      // WHY: Only accumulate when price is above the locked line.
+      // Scale by 0.02 per frame so the number grows at a readable pace.
+      if (overage > 0) {
+        rebateTotal += overage * 0.02;
+      }
+
+      const rebPad = 12;
+      const rebBoxW = 250;
+      const rebBoxH = 108;
+      const rebBoxX = w - rebBoxW - 50;
+      const rebBoxY = chartTop + 20;
+
+      // Box background + border
+      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.beginPath();
+      ctx.roundRect(rebBoxX, rebBoxY, rebBoxW, rebBoxH, 6);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(5, 150, 105, 0.12)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      const rebX = rebBoxX + rebPad;
+      let rebY = rebBoxY + rebPad + 4;
+      ctx.textAlign = "left";
+
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillStyle = "rgba(5, 150, 105, 0.25)";
+      ctx.fillText("PUMPLOCK MEMBER", rebX, rebY);
+      rebY += 19;
+
+      ctx.font = "14px sans-serif";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.14)";
+      ctx.fillText("Membership Rebate", rebX, rebY);
+      rebY += 26;
+
+      // WHY: The rebate dollar amount grows live as the chart price
+      // exceeds the locked price — makes the value tangible.
+      ctx.font = "bold 28px monospace";
+      ctx.fillStyle = "rgba(5, 150, 105, 0.25)";
+      ctx.fillText(`$${rebateTotal.toFixed(2)}`, rebX, rebY);
+      rebY += 22;
+
+      if (overage > 0) {
+        ctx.font = "14px sans-serif";
+        ctx.fillStyle = "rgba(5, 150, 105, 0.30)";
+        ctx.fillText(`▲ +$${overage.toFixed(2)}/gal above locked price`, rebX, rebY);
+      } else {
+        ctx.font = "14px sans-serif";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
+        ctx.fillText("Price below locked — no rebate yet", rebX, rebY);
+      }
 
       offset += SPEED;
       animRef.current = requestAnimationFrame(draw);

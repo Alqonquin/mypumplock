@@ -65,21 +65,23 @@ export async function POST(request: NextRequest) {
     // variable-length month ambiguity.
     endDate.setDate(endDate.getDate() + termDays);
 
+    // WHY: Coerce types to match Prisma schema — JSON body values may
+    // arrive as unexpected types (e.g., float where Int is expected).
     const plan = await prisma.plan.create({
       data: {
         userId: session.user.id,
-        spotPrice,
-        strikePrice,
-        termDays,
-        gallonsPerMonth,
-        premiumPerGallon,
-        upfrontPrice,
-        monthlyEquivalent,
-        vehicleYear: vehicleYear || null,
+        spotPrice: Number(spotPrice),
+        strikePrice: Number(strikePrice),
+        termDays: Math.round(Number(termDays)),
+        gallonsPerMonth: Number(gallonsPerMonth),
+        premiumPerGallon: Number(premiumPerGallon || 0),
+        upfrontPrice: Number(upfrontPrice),
+        monthlyEquivalent: Number(monthlyEquivalent || 0),
+        vehicleYear: vehicleYear ? Math.round(Number(vehicleYear)) : null,
         vehicleMake: vehicleMake || null,
         vehicleModel: vehicleModel || null,
-        vehicleMpg: vehicleMpg || null,
-        monthlyMiles: monthlyMiles || null,
+        vehicleMpg: vehicleMpg ? Number(vehicleMpg) : null,
+        monthlyMiles: monthlyMiles ? Math.round(Number(monthlyMiles)) : null,
         fuelType: fuelType || null,
         zip,
         cityState: cityState || null,

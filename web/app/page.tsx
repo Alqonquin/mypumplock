@@ -75,9 +75,6 @@ export default function Home() {
   // fleet vehicles, etc.) enter monthly gallons directly instead of using MPG.
   const [skipVehicle, setSkipVehicle] = useState(false);
   const [manualGallons, setManualGallons] = useState(80);
-  // WHY: savedVehicles lets logged-in users quickly select a previously used vehicle
-  // instead of re-entering year/make/model every time.
-  const [savedVehicles, setSavedVehicles] = useState<{id: string; year: number; make: string; model: string; mpg: number; fuelType: string}[]>([]);
   const [monthlyGallons, setMonthlyGallons] = useState(50);
   const [strikePrice, setStrikePrice] = useState(0);
   const [selectedTerm, setSelectedTerm] = useState(6);
@@ -108,17 +105,6 @@ export default function Home() {
       })
       .catch(() => {}); // Silently use defaults if fetch fails
   }, []);
-
-  // WHY: Fetch saved vehicles for logged-in users so they appear in Step 2.
-  useEffect(() => {
-    if (!session) return;
-    fetch("/api/member/vehicles")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setSavedVehicles(data);
-      })
-      .catch(() => {});
-  }, [session]);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -367,22 +353,6 @@ export default function Home() {
     }
 
     try {
-      // WHY: Auto-save the vehicle so it appears in "Your saved vehicles" next time.
-      // Fire-and-forget — don't block plan creation on vehicle save.
-      if (!skipVehicle && selectedYear && selectedMake && selectedModel && vehicleMpg) {
-        fetch("/api/member/vehicles", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            year: parseInt(selectedYear),
-            make: selectedMake,
-            model: selectedModel,
-            mpg: vehicleMpg,
-            fuelType: vehicleFuel || "Regular Gasoline",
-          }),
-        }).catch(() => {}); // Non-critical — duplicates handled server-side
-      }
-
       const res = await fetch("/api/member/plans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -745,40 +715,6 @@ export default function Home() {
                   {cityState || localPrice.areaName} — avg: <span className="text-gray-900 font-semibold">${localPrice.price.toFixed(2)}/gal</span>
                 </p>
               </div>
-
-              {/* Saved vehicles for logged-in users */}
-              {session && savedVehicles.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">Your saved vehicles</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {savedVehicles.map((sv) => (
-                      <button
-                        key={sv.id}
-                        onClick={() => {
-                          setSelectedYear(String(sv.year));
-                          setSelectedMake(sv.make);
-                          setSelectedModel(sv.model);
-                          setVehicleMpg(sv.mpg);
-                          setVehicleFuel(sv.fuelType);
-                          setSkipVehicle(false);
-                        }}
-                        className={`p-3 rounded-xl border text-left transition ${
-                          selectedYear === String(sv.year) && selectedMake === sv.make && selectedModel === sv.model && vehicleMpg === sv.mpg
-                            ? "border-emerald-500 bg-emerald-50"
-                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
-                        }`}
-                      >
-                        <p className="text-sm font-semibold text-gray-900">{sv.year} {sv.make} {sv.model}</p>
-                        <p className="text-xs text-gray-500">{sv.mpg} MPG &middot; {sv.fuelType}</p>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="relative my-4">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-                    <div className="relative flex justify-center text-xs"><span className="bg-white px-3 text-gray-400">or search for a vehicle</span></div>
-                  </div>
-                </div>
-              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Year */}

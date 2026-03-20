@@ -29,7 +29,6 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   plans        Plan[]
-  vehicles     Vehicle[]
 }
 
 model Plan {
@@ -74,29 +73,6 @@ model Plan {
   @@index([userId])
   @@index([status])
   @@index([endDate])
-}
-
-model Vehicle {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-
-  year      Int
-  make      String
-  model     String
-  mpg       Float
-  fuelType  String
-
-  // WHY: Nickname lets users distinguish between vehicles of the same
-  // make, e.g. "My Truck" vs "Work Van".
-  nickname  String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  // WHY: Prevent exact duplicate vehicles for the same user.
-  @@unique([userId, year, make, model])
 }
 
 model PricingConfig {

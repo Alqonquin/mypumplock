@@ -1114,9 +1114,15 @@ export default function Home() {
                   ${result.monthlyEquivalent.toFixed(2)}
                 </p>
                 <p className="text-xl font-bold text-gray-900 mb-3">per month</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 mb-5">
                   One payment of ${result.upfrontPrice.toFixed(2)}
                 </p>
+                <button
+                  onClick={handleGetProtected}
+                  className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20"
+                >
+                  {session ? "Get Protected Now" : "Sign Up & Get Protected"}
+                </button>
               </div>
 
               {/* Coverage details */}

@@ -124,10 +124,10 @@ export default function AccountPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
               <p className="text-gray-500 mb-4">You don&apos;t have any active memberships yet.</p>
               <Link
-                href="/#quote"
+                href="/#calculator"
                 className="inline-block px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition"
               >
-                Get a Quote
+                Add a Membership
               </Link>
             </div>
           ) : (

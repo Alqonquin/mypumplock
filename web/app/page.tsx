@@ -742,7 +742,7 @@ export default function Home() {
 
           {/* Step 2: Vehicle Picker */}
           {calcStep === 2 && localPrice && (
-            <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+            <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm sm:min-h-[340px]">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 mb-1">What do you drive?</h3>
@@ -899,12 +899,6 @@ export default function Home() {
                 </div>
               )}
 
-              {vehicleLoading && (
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                  Loading vehicle data...
-                </div>
-              )}
 
               <div className="flex items-center gap-3">
                 <button

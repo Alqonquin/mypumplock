@@ -62,6 +62,9 @@ export default function Home() {
   const [nonUsError, setNonUsError] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<AddressResult | null>(null);
   const [localPrice, setLocalPrice] = useState<LocalPriceResult | null>(null);
+  // WHY: Store the original Regular gas price so fuel type adjustments
+  // (Premium +$0.60, Diesel +$0.40) don't compound when the user goes back.
+  const [baseRegularPrice, setBaseRegularPrice] = useState(0);
   const [cityState, setCityState] = useState("");
   const [monthlyMiles, setMonthlyMiles] = useState(1000);
   const [selectedYear, setSelectedYear] = useState("");
@@ -229,6 +232,7 @@ export default function Home() {
     else setCityState(areaName);
 
     setLocalPrice({ price: finalPrice, areaName, source: "state" });
+    setBaseRegularPrice(finalPrice);
     setStrikePrice(Math.round((finalPrice + 0.50) * 100) / 100);
     setCalcStep(2);
   }
@@ -271,6 +275,7 @@ export default function Home() {
   function handleStartOver() {
     setCalcStep(1);
     setLocalPrice(null);
+    setBaseRegularPrice(0);
     setCityState("");
     setResult(null);
     setTiers([]);
@@ -840,9 +845,23 @@ export default function Home() {
 
               {vehicleMpg && vehicleMpg > 0 && (
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                  <p className="text-sm text-gray-600">
-                    {selectedYear} {selectedMake} {selectedModel} — <span className="font-bold text-emerald-600">{vehicleMpg} MPG</span> ({vehicleFuel})
+                  <p className="text-sm text-gray-600 mb-2">
+                    {selectedYear} {selectedMake} {selectedModel} — <span className="font-bold text-emerald-600">{vehicleMpg} MPG</span>
                   </p>
+                  {/* WHY: EPA may say "Premium" but many drivers use Regular.
+                      Letting them pick ensures the quote uses the right fuel price. */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium text-gray-500">Fuel type:</label>
+                    <select
+                      value={vehicleFuel}
+                      onChange={(e) => setVehicleFuel(e.target.value)}
+                      className="px-2 py-1 text-sm bg-white border border-emerald-200 rounded-lg text-gray-900 focus:border-emerald-500 focus:outline-none"
+                    >
+                      <option value="Regular Gasoline">Regular</option>
+                      <option value="Premium Gasoline">Premium</option>
+                      <option value="Diesel">Diesel</option>
+                    </select>
+                  </div>
                 </div>
               )}
 
@@ -878,6 +897,7 @@ export default function Home() {
                   onClick={() => {
                     setSkipVehicle(true);
                     setManualGallons(80);
+                    if (!vehicleFuel) setVehicleFuel("Regular Gasoline");
                     setCalcStep(3);
                   }}
                   className="ml-auto text-sm text-gray-400 hover:text-emerald-600 transition"
@@ -984,6 +1004,19 @@ export default function Home() {
                     </div>
                   </div>
 
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Fuel type:</label>
+                    <select
+                      value={vehicleFuel}
+                      onChange={(e) => setVehicleFuel(e.target.value)}
+                      className="px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    >
+                      <option value="Regular Gasoline">Regular</option>
+                      <option value="Premium Gasoline">Premium</option>
+                      <option value="Diesel">Diesel</option>
+                    </select>
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     {[
                       { label: "Sedan", gal: 50 },
@@ -1021,6 +1054,18 @@ export default function Home() {
                       setMonthlyGallons(manualGallons);
                     } else if (vehicleMpg && vehicleMpg > 0) {
                       setMonthlyGallons(estimateMonthlyGallons(vehicleMpg, monthlyMiles));
+                    }
+                    // WHY: Adjust base price for fuel type. AAA data is Regular only.
+                    // National avg spreads: Premium ~+$0.60, Diesel ~+$0.40 vs Regular.
+                    // Always calculate from baseRegularPrice to avoid compounding adjustments.
+                    if (baseRegularPrice > 0) {
+                      let adjusted = baseRegularPrice;
+                      if (vehicleFuel === "Premium Gasoline") adjusted += 0.60;
+                      else if (vehicleFuel === "Diesel") adjusted += 0.40;
+                      if (localPrice) {
+                        setLocalPrice({ ...localPrice, price: adjusted });
+                      }
+                      setStrikePrice(Math.round((adjusted + 0.50) * 100) / 100);
                     }
                     setCalcStep(4);
                   }}

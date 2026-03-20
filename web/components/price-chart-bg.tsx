@@ -251,6 +251,67 @@ export function PriceChartBg() {
       let rebY = rebBoxY + rebPad + 4;
       ctx.textAlign = "left";
 
+      // ── PumpLock logo (shield + nozzle) ──
+      const logoSize = 22;
+      const logoX = rebBoxX + rebBoxW - rebPad - logoSize;
+      const logoY = rebBoxY + rebPad;
+      const ls = logoSize / 64; // scale factor from 64x64 viewBox
+      ctx.save();
+      ctx.translate(logoX, logoY);
+      ctx.scale(ls, ls);
+
+      // Outer circle
+      ctx.strokeStyle = "rgba(5, 150, 105, 0.30)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(32, 30, 26, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Shield
+      ctx.fillStyle = "rgba(5, 150, 105, 0.25)";
+      ctx.beginPath();
+      ctx.moveTo(32, 10);
+      ctx.lineTo(19, 17);
+      ctx.lineTo(19, 32);
+      ctx.quadraticCurveTo(19, 40, 32, 48);
+      ctx.quadraticCurveTo(45, 40, 45, 32);
+      ctx.lineTo(45, 17);
+      ctx.closePath();
+      ctx.fill();
+
+      // Nozzle handle
+      ctx.strokeStyle = "rgba(5, 150, 105, 0.30)";
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(45, 24);
+      ctx.lineTo(49, 24);
+      ctx.lineTo(49, 28);
+      ctx.lineTo(47, 30);
+      ctx.stroke();
+
+      // Hose
+      ctx.beginPath();
+      ctx.moveTo(47, 30);
+      ctx.quadraticCurveTo(50, 33, 50, 36);
+      ctx.lineTo(50, 42);
+      ctx.stroke();
+
+      // Nozzle tip
+      ctx.fillStyle = "rgba(5, 150, 105, 0.25)";
+      ctx.beginPath();
+      ctx.moveTo(48, 42);
+      ctx.lineTo(52, 42);
+      ctx.lineTo(52, 47);
+      ctx.lineTo(50.5, 49);
+      ctx.lineTo(49.5, 47);
+      ctx.lineTo(48, 47);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+
       ctx.font = "bold 13px sans-serif";
       ctx.fillStyle = "rgba(5, 150, 105, 0.25)";
       ctx.fillText("PUMPLOCK MEMBER", rebX, rebY);

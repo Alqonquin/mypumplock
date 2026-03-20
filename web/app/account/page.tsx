@@ -168,7 +168,7 @@ function PlanCard({ plan }: { plan: Plan }) {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <Link href={`/account/plans/${plan.id}`} className="block bg-white rounded-xl border border-gray-200 p-5 hover:border-emerald-300 hover:shadow-sm transition cursor-pointer">
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -207,6 +207,6 @@ function PlanCard({ plan }: { plan: Plan }) {
           </div>
         </div>
       )}
-    </div>
+    </Link>
   );
 }

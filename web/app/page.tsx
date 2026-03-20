@@ -735,9 +735,34 @@ export default function Home() {
             <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-1">What do you drive?</h3>
-                <p className="text-gray-500 text-sm">
-                  {cityState || localPrice.areaName} — Regular: <span className="text-gray-900 font-semibold">${baseRegularPrice.toFixed(2)}</span> · Premium: <span className="text-gray-900 font-semibold">${(baseRegularPrice + 0.60).toFixed(2)}</span> · Diesel: <span className="text-gray-900 font-semibold">${(baseRegularPrice + 0.40).toFixed(2)}</span>
+                <p className="text-gray-500 text-sm mb-3">
+                  {cityState || localPrice.areaName}
                 </p>
+                {/* WHY: Styled like a gas station pump topper so users
+                    instantly recognize the price format and feel grounded. */}
+                <div className="bg-gray-900 rounded-xl p-3 flex gap-0 overflow-hidden">
+                  {[
+                    { grade: "87", label: "REGULAR", price: baseRegularPrice },
+                    { grade: "91", label: "PREMIUM", price: baseRegularPrice + 0.60 },
+                    { grade: "", label: "DIESEL", price: baseRegularPrice + 0.40 },
+                  ].map((fuel, i) => (
+                    <div
+                      key={fuel.label}
+                      className={`flex-1 text-center py-2 ${
+                        i < 2 ? "border-r border-gray-700" : ""
+                      }`}
+                    >
+                      <p className="text-[10px] font-bold tracking-widest text-gray-400 mb-0.5">
+                        {fuel.grade && <span className="text-yellow-400 mr-1">{fuel.grade}</span>}
+                        {fuel.label}
+                      </p>
+                      <p className="text-xl font-black text-emerald-400 font-mono tracking-tight">
+                        {fuel.price.toFixed(2)}
+                        <span className="text-xs align-top text-emerald-500 ml-0.5">9</span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

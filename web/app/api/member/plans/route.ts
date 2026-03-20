@@ -96,9 +96,11 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(plan, { status: 201 });
-  } catch {
+  } catch (err) {
+    console.error("Plan creation failed:", err);
+    const message = err instanceof Error ? err.message : "Failed to create plan";
     return NextResponse.json(
-      { error: "Failed to create plan" },
+      { error: message },
       { status: 500 }
     );
   }

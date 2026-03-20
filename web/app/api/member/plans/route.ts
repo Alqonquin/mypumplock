@@ -47,6 +47,12 @@ export async function POST(request: NextRequest) {
       stateCode,
     } = body;
 
+    console.log("Plan creation body:", JSON.stringify({
+      spotPrice, strikePrice, termDays, gallonsPerMonth,
+      premiumPerGallon, upfrontPrice, monthlyEquivalent, zip,
+      vehicleYear, fuelType,
+    }));
+
     // Validate required fields
     if (!spotPrice || !strikePrice || !termDays || !gallonsPerMonth || !upfrontPrice || !zip) {
       return NextResponse.json(
@@ -98,11 +104,18 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(plan, { status: 201 });
-  } catch (err) {
-    console.error("Plan creation failed:", err);
-    const message = err instanceof Error ? err.message : "Failed to create plan";
+  } catch (err: unknown) {
+    const prismaErr = err as { code?: string; meta?: unknown; message?: string };
+    console.error("Plan creation failed:", {
+      code: prismaErr.code,
+      meta: prismaErr.meta,
+      message: prismaErr.message?.substring(0, 500),
+    });
     return NextResponse.json(
-      { error: message },
+      {
+        error: prismaErr.message?.substring(0, 300) || "Failed to create plan",
+        code: prismaErr.code,
+      },
       { status: 500 }
     );
   }

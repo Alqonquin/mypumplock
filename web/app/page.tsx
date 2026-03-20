@@ -396,9 +396,11 @@ export default function Home() {
         router.push("/account");
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to create plan");
+        console.error("Plan creation response:", data);
+        alert(`Error: ${data.error || "Failed to create membership"}${data.code ? ` (${data.code})` : ""}`);
       }
-    } catch {
+    } catch (err) {
+      console.error("Plan creation fetch error:", err);
       alert("Something went wrong. Please try again.");
     }
   }

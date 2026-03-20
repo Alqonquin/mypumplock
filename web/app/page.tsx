@@ -82,7 +82,8 @@ export default function Home() {
   const [manualGallons, setManualGallons] = useState(80);
   const [monthlyGallons, setMonthlyGallons] = useState(50);
   const [strikePrice, setStrikePrice] = useState(0);
-  const [selectedTerm, setSelectedTerm] = useState(1);
+  // WHY: Default to 30-day term so users see the lowest entry price first.
+  const [selectedTerm, setSelectedTerm] = useState(30);
   const [result, setResult] = useState<PricingResult | null>(null);
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [tiers1mo, setTiers1mo] = useState<TierRow[]>([]);
@@ -242,7 +243,7 @@ export default function Home() {
   }
 
 
-  function computeQuote(termMonths: number) {
+  function computeQuote(termDays: number) {
     if (!localPrice) return;
     const currentMonth = new Date().getMonth() + 1;
     const pricingResult = priceProtectionPlan({
@@ -252,18 +253,18 @@ export default function Home() {
       volatility: pricingVolatility,
       riskFreeRate: pricingRate,
       currentMonth,
-      termMonths,
+      termDays,
       operationalLoad: pricingOpLoad,
       profitMargin: pricingProfit,
       adverseSelectionLoad: pricingAdvSel,
     });
     setResult(pricingResult);
-    const genTiers = (months: number) => generateTierComparison(
-      localPrice.price, monthlyGallons, pricingVolatility, pricingRate, currentMonth, months
+    const genTiers = (days: number) => generateTierComparison(
+      localPrice.price, monthlyGallons, pricingVolatility, pricingRate, currentMonth, days
     );
-    setTiers1mo(genTiers(1));
-    setTiers3mo(genTiers(3));
-    setTiers(genTiers(termMonths));
+    setTiers1mo(genTiers(30));
+    setTiers3mo(genTiers(90));
+    setTiers(genTiers(termDays));
   }
 
   function handleGetQuote() {
@@ -361,7 +362,7 @@ export default function Home() {
     const planData = {
       spotPrice: localPrice.price,
       strikePrice: result.strikePrice,
-      termMonths: selectedTerm,
+      termDays: selectedTerm,
       gallonsPerMonth: monthlyGallons,
       premiumPerGallon: result.totalPremiumPerGallon,
       upfrontPrice: result.upfrontPrice,
@@ -1171,17 +1172,17 @@ export default function Home() {
               <div className="flex gap-2 bg-white border border-gray-200 rounded-xl p-1.5 shadow-sm">
                 {TERM_OPTIONS.map((term) => (
                   <button
-                    key={term.months}
-                    onClick={() => handleTermChange(term.months)}
+                    key={term.days}
+                    onClick={() => handleTermChange(term.days)}
                     className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition ${
-                      selectedTerm === term.months
+                      selectedTerm === term.days
                         ? "bg-emerald-600 text-white shadow-sm"
                         : "text-gray-600 hover:bg-gray-50"
                     }`}
                   >
                     <span className="block">{term.label}</span>
                     <span className={`block text-xs font-normal mt-0.5 ${
-                      selectedTerm === term.months ? "text-emerald-100" : "text-gray-400"
+                      selectedTerm === term.days ? "text-emerald-100" : "text-gray-400"
                     }`}>
                       {term.desc}
                     </span>
@@ -1192,7 +1193,7 @@ export default function Home() {
               {/* Hero price card */}
               <div className="text-center p-8 sm:p-10 bg-gradient-to-b from-emerald-50 to-white border border-emerald-200 rounded-2xl shadow-sm">
                 <p className="text-sm text-emerald-600 uppercase tracking-widest mb-3">
-                  Your {result.policyMonths}-Month PumpLock Membership Plan
+                  Your {result.policyDays}-Day PumpLock Membership
                 </p>
                 <p className="text-7xl sm:text-8xl font-black text-emerald-600 mb-1">
                   ${result.monthlyEquivalent.toFixed(2)}
@@ -1279,7 +1280,7 @@ export default function Home() {
                                 volatility: pricingVolatility,
                                 riskFreeRate: pricingRate,
                                 currentMonth,
-                                termMonths: selectedTerm,
+                                termDays: selectedTerm,
                                 operationalLoad: pricingOpLoad,
                                 profitMargin: pricingProfit,
                                 adverseSelectionLoad: pricingAdvSel,

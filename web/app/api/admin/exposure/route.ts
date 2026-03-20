@@ -29,12 +29,13 @@ export async function GET() {
   const byTerm: Record<number, { plans: number; exposure: number; premium: number }> = {};
 
   const planDetails = activePlans.map((plan) => {
-    const monthsElapsed = Math.max(
+    const daysElapsed = Math.max(
       0,
-      (now.getTime() - plan.startDate.getTime()) / (30.44 * 24 * 60 * 60 * 1000)
+      (now.getTime() - plan.startDate.getTime()) / (24 * 60 * 60 * 1000)
     );
-    const monthsRemaining = Math.max(0, plan.termMonths - monthsElapsed);
-    const gallonsRemaining = plan.gallonsPerMonth * monthsRemaining;
+    const daysRemaining = Math.max(0, plan.termDays - daysElapsed);
+    // WHY: gallonsPerMonth / 30 = daily gallons, × daysRemaining = gallons left.
+    const gallonsRemaining = (plan.gallonsPerMonth / 30) * daysRemaining;
 
     // WHY: Max exposure assumes gas could spike $3/gal above strike.
     // This is a conservative estimate — actual exposure depends on real prices.
@@ -43,7 +44,7 @@ export async function GET() {
 
     totalMaxExposure += maxExposure;
     totalPremiumCollected += plan.upfrontPrice;
-    totalGallonsCovered += plan.gallonsPerMonth * plan.termMonths;
+    totalGallonsCovered += (plan.gallonsPerMonth / 30) * plan.termDays;
     totalActivePlans++;
 
     const state = plan.stateCode || "??";
@@ -52,10 +53,10 @@ export async function GET() {
     byState[state].exposure += maxExposure;
     byState[state].premium += plan.upfrontPrice;
 
-    if (!byTerm[plan.termMonths]) byTerm[plan.termMonths] = { plans: 0, exposure: 0, premium: 0 };
-    byTerm[plan.termMonths].plans++;
-    byTerm[plan.termMonths].exposure += maxExposure;
-    byTerm[plan.termMonths].premium += plan.upfrontPrice;
+    if (!byTerm[plan.termDays]) byTerm[plan.termDays] = { plans: 0, exposure: 0, premium: 0 };
+    byTerm[plan.termDays].plans++;
+    byTerm[plan.termDays].exposure += maxExposure;
+    byTerm[plan.termDays].premium += plan.upfrontPrice;
 
     return {
       id: plan.id,
@@ -63,9 +64,9 @@ export async function GET() {
       userName: plan.user.name,
       strikePrice: plan.strikePrice,
       spotAtPurchase: plan.spotPrice,
-      termMonths: plan.termMonths,
+      termDays: plan.termDays,
       gallonsPerMonth: plan.gallonsPerMonth,
-      monthsRemaining: Math.round(monthsRemaining * 10) / 10,
+      daysRemaining: Math.round(daysRemaining),
       gallonsRemaining: Math.round(gallonsRemaining),
       maxExposure: Math.round(maxExposure * 100) / 100,
       premiumPaid: plan.upfrontPrice,

@@ -7,7 +7,7 @@ interface MemberPlan {
   status: string;
   strikePrice: number;
   spotPrice: number;
-  termMonths: number;
+  termDays: number;
   gallonsPerMonth: number;
   upfrontPrice: number;
   zip: string;
@@ -138,7 +138,7 @@ export default function AdminMembersPage() {
                                     {plan.status}
                                   </span>
                                   <span className="font-medium">${plan.strikePrice.toFixed(2)}/gal max</span>
-                                  <span className="text-gray-400">{plan.termMonths}mo &middot; {plan.gallonsPerMonth} gal/mo</span>
+                                  <span className="text-gray-400">{plan.termDays}d &middot; {plan.gallonsPerMonth} gal/mo</span>
                                 </div>
                                 <div className="flex items-center gap-4 text-gray-500">
                                   <span>{plan.cityState || plan.zip}</span>

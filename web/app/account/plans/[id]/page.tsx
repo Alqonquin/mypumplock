@@ -9,7 +9,6 @@ import { PumpLockLogo } from "@/components/pumplock-logo";
 interface DayRow {
   day: number;
   date: string;
-  elapsed: boolean;
   dailyGallons: number;
   dailyAvgPrice: number;
   maxMemberPrice: number;
@@ -23,7 +22,7 @@ interface PlanDetail {
     status: string;
     strikePrice: number;
     spotPrice: number;
-    termMonths: number;
+    termDays: number;
     gallonsPerMonth: number;
     upfrontPrice: number;
     monthlyEquivalent: number;
@@ -159,7 +158,7 @@ export default function PlanDetailPage() {
                     </span>
                   </div>
                   <p className="text-sm text-gray-500">
-                    {plan.termMonths}-month membership &middot;{" "}
+                    {plan.termDays}-day membership &middot;{" "}
                     {plan.gallonsPerMonth} gal/mo &middot;{" "}
                     {plan.cityState || plan.zip}
                   </p>
@@ -251,17 +250,12 @@ export default function PlanDetailPage() {
                     <tbody className="divide-y divide-gray-100">
                       {data.days.map((row) => {
                         const hasRebate = row.dailyRebate > 0;
-                        const isFuture = !row.elapsed;
                         return (
                           <tr
                             key={row.day}
-                            className={`${
-                              isFuture
-                                ? "opacity-40"
-                                : hasRebate
-                                ? "bg-emerald-50/40"
-                                : ""
-                            }`}
+                            className={
+                              hasRebate ? "bg-emerald-50/40" : ""
+                            }
                           >
                             <td className="px-4 py-2.5 font-medium text-gray-900">
                               {row.day}

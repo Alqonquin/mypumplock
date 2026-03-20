@@ -8,9 +8,9 @@ interface PlanDetail {
   userName: string | null;
   strikePrice: number;
   spotAtPurchase: number;
-  termMonths: number;
+  termDays: number;
   gallonsPerMonth: number;
-  monthsRemaining: number;
+  daysRemaining: number;
   gallonsRemaining: number;
   maxExposure: number;
   premiumPaid: number;
@@ -169,9 +169,9 @@ export default function AdminExposurePage() {
                   </td>
                   <td className="px-4 py-2 text-right font-mono">${plan.strikePrice.toFixed(2)}</td>
                   <td className="px-4 py-2 text-right font-mono text-gray-500">${plan.spotAtPurchase.toFixed(2)}</td>
-                  <td className="px-4 py-2 text-center">{plan.termMonths}mo</td>
+                  <td className="px-4 py-2 text-center">{plan.termDays}d</td>
                   <td className="px-4 py-2 text-right">{plan.gallonsPerMonth}</td>
-                  <td className="px-4 py-2 text-right">{plan.monthsRemaining}</td>
+                  <td className="px-4 py-2 text-right">{plan.daysRemaining}</td>
                   <td className="px-4 py-2 text-right font-mono text-emerald-600">${plan.premiumPaid.toFixed(2)}</td>
                   <td className="px-4 py-2 text-right font-mono text-amber-600">${plan.maxExposure.toFixed(2)}</td>
                   <td className="px-4 py-2">{plan.stateCode || "—"}</td>

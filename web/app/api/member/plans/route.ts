@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const {
       spotPrice,
       strikePrice,
-      termMonths,
+      termDays,
       gallonsPerMonth,
       premiumPerGallon,
       upfrontPrice,
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!spotPrice || !strikePrice || !termMonths || !gallonsPerMonth || !upfrontPrice || !zip) {
+    if (!spotPrice || !strikePrice || !termDays || !gallonsPerMonth || !upfrontPrice || !zip) {
       return NextResponse.json(
         { error: "Missing required plan fields" },
         { status: 400 }
@@ -61,14 +61,16 @@ export async function POST(request: NextRequest) {
     });
 
     const endDate = new Date();
-    endDate.setMonth(endDate.getMonth() + termMonths);
+    // WHY: Use exact day count instead of month arithmetic to avoid
+    // variable-length month ambiguity.
+    endDate.setDate(endDate.getDate() + termDays);
 
     const plan = await prisma.plan.create({
       data: {
         userId: session.user.id,
         spotPrice,
         strikePrice,
-        termMonths,
+        termDays,
         gallonsPerMonth,
         premiumPerGallon,
         upfrontPrice,

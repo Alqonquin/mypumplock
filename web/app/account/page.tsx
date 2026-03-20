@@ -11,7 +11,7 @@ interface Plan {
   status: string;
   strikePrice: number;
   spotPrice: number;
-  termMonths: number;
+  termDays: number;
   gallonsPerMonth: number;
   upfrontPrice: number;
   monthlyEquivalent: number;
@@ -180,7 +180,7 @@ function PlanCard({ plan }: { plan: Plan }) {
             </span>
           </div>
           <p className="text-sm text-gray-500">
-            {plan.termMonths}-month membership &middot; {plan.gallonsPerMonth} gal/mo &middot; {plan.cityState || plan.zip}
+            {plan.termDays}-day membership &middot; {plan.gallonsPerMonth} gal/mo &middot; {plan.cityState || plan.zip}
           </p>
           {vehicle && (
             <p className="text-sm text-gray-400 mt-0.5">{vehicle}</p>

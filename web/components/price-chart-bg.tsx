@@ -157,8 +157,8 @@ export function PriceChartBg() {
       const keyX = 100;
       const keyBoxX = keyX - keyPad;
       const keyBoxY = chartTop + 20;
-      const keyBoxW = 210;
-      const keyBoxH = 88;
+      const keyBoxW = 250;
+      const keyBoxH = 108;
 
       // Box background + border
       ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
@@ -172,30 +172,30 @@ export function PriceChartBg() {
       let keyY = keyBoxY + keyPad + 4;
       ctx.textAlign = "left";
 
-      ctx.font = "bold 10px sans-serif";
-      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
       ctx.fillText("RBW00:NYMEX", keyX, keyY);
-      keyY += 16;
+      keyY += 19;
 
-      ctx.font = "11px sans-serif";
-      ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+      ctx.font = "14px sans-serif";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.14)";
       ctx.fillText("RBOB Gasoline Futures", keyX, keyY);
-      keyY += 22;
+      keyY += 26;
 
       // WHY: Display a price that tracks the actual animated line so the
       // ticker feels alive, not static.
       const currentPrice = prices[recalcStart + pointsOnScreen - 1] ?? 0.5;
       const displayPrice = 2.00 + currentPrice * 2.50; // maps 0-1 to $2.00-$4.50
-      ctx.font = "bold 22px monospace";
-      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+      ctx.font = "bold 28px monospace";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
       ctx.fillText(`$${displayPrice.toFixed(2)}`, keyX, keyY);
-      keyY += 18;
+      keyY += 22;
 
       // Change indicator — always trending up to reinforce the message
       const changeAmt = (displayPrice - 2.85).toFixed(2);
       const changePct = (((displayPrice - 2.85) / 2.85) * 100).toFixed(1);
-      ctx.font = "12px sans-serif";
-      ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
+      ctx.font = "14px sans-serif";
+      ctx.fillStyle = "rgba(239, 68, 68, 0.30)";
       ctx.fillText(`▲ +${changePct}% (+${changeAmt})  Today`, keyX, keyY);
       keyY += 14;
 

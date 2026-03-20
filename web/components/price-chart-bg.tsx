@@ -88,7 +88,7 @@ export function PriceChartBg() {
       }
 
       // Y-axis price labels (gas prices rising)
-      ctx.font = "12px monospace";
+      ctx.font = "15px monospace";
       ctx.fillStyle = LABEL_COLOR;
       const labels = ["$4.50", "$4.00", "$3.50", "$3.00", "$2.50", "$2.00"];
       for (let i = 0; i <= 5; i++) {
@@ -151,6 +151,39 @@ export function PriceChartBg() {
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
+      // ── Ticker key (upper-left, Google Finance style) ──
+      // WHY: Adds realism — looks like a real commodity chart at a glance.
+      const keyX = 12;
+      let keyY = chartTop + 14;
+      ctx.textAlign = "left";
+
+      ctx.font = "bold 10px sans-serif";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+      ctx.fillText("RBW00:NYMEX", keyX, keyY);
+      keyY += 16;
+
+      ctx.font = "11px sans-serif";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
+      ctx.fillText("RBOB Gasoline Futures", keyX, keyY);
+      keyY += 22;
+
+      // WHY: Display a price that tracks the actual animated line so the
+      // ticker feels alive, not static.
+      const currentPrice = prices[recalcStart + pointsOnScreen - 1] ?? 0.5;
+      const displayPrice = 2.00 + currentPrice * 2.50; // maps 0-1 to $2.00-$4.50
+      ctx.font = "bold 22px monospace";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+      ctx.fillText(`$${displayPrice.toFixed(2)}`, keyX, keyY);
+      keyY += 18;
+
+      // Change indicator — always trending up to reinforce the message
+      const changeAmt = (displayPrice - 2.85).toFixed(2);
+      const changePct = (((displayPrice - 2.85) / 2.85) * 100).toFixed(1);
+      ctx.font = "12px sans-serif";
+      ctx.fillStyle = "rgba(239, 68, 68, 0.22)";
+      ctx.fillText(`▲ +${changePct}% (+${changeAmt})  Today`, keyX, keyY);
+      keyY += 14;
+
       // "Your max price" dashed line — positioned at ~$3.50 area
       // WHY: Shows the protection ceiling visually. Placed at 40% from top
       // so the rising price line crosses above it, illustrating the problem.
@@ -164,7 +197,7 @@ export function PriceChartBg() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.font = "11px sans-serif";
+      ctx.font = "14px sans-serif";
       ctx.fillStyle = "rgba(239, 68, 68, 0.35)";
       ctx.fillText("YOUR LOCKED PRICE", w - 145, strikeY - 5);
 

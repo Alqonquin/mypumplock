@@ -161,7 +161,9 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       const keyPad = 12;
       const keyX = 100;
       const keyBoxX = keyX - keyPad;
-      const keyBoxY = chartTop + 20;
+      // WHY: Fixed pixel position so the box doesn't scale/distort
+      // when the section grows taller with more form content.
+      const keyBoxY = 30;
       const keyBoxW = 250;
       const keyBoxH = 108;
 
@@ -238,7 +240,7 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       const rebBoxW = 250;
       const rebBoxH = 108;
       const rebBoxX = w - rebBoxW - 50;
-      const rebBoxY = chartTop + 20;
+      const rebBoxY = 30;
 
       // Box background + border
       ctx.fillStyle = "rgba(255, 255, 255, 0.5)";

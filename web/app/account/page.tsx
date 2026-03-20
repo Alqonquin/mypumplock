@@ -25,11 +25,23 @@ interface Plan {
   endDate: string;
 }
 
+interface SavedVehicle {
+  id: string;
+  year: number;
+  make: string;
+  model: string;
+  mpg: number;
+  fuelType: string;
+  nickname: string | null;
+}
+
 export default function AccountPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [vehicles, setVehicles] = useState<SavedVehicle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [vehiclesLoading, setVehiclesLoading] = useState(true);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -46,8 +58,25 @@ export default function AccountPage() {
           setLoading(false);
         })
         .catch(() => setLoading(false));
+
+      fetch("/api/member/vehicles")
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setVehicles(data);
+          setVehiclesLoading(false);
+        })
+        .catch(() => setVehiclesLoading(false));
     }
   }, [status]);
+
+  async function handleDeleteVehicle(id: string) {
+    try {
+      const res = await fetch(`/api/member/vehicles/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setVehicles((prev) => prev.filter((v) => v.id !== id));
+      }
+    } catch { /* non-critical */ }
+  }
 
   if (status === "loading" || status === "unauthenticated") {
     return (
@@ -116,6 +145,56 @@ export default function AccountPage() {
             <div className="space-y-4">
               {activePlans.map((plan) => (
                 <PlanCard key={plan.id} plan={plan} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* My Vehicles */}
+        <section className="mb-10">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            My Vehicles{" "}
+            {vehicles.length > 0 && (
+              <span className="text-sm font-normal text-gray-400">({vehicles.length})</span>
+            )}
+          </h2>
+
+          {vehiclesLoading ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
+              Loading vehicles...
+            </div>
+          ) : vehicles.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+              <p className="text-gray-500 mb-2">No saved vehicles yet.</p>
+              <p className="text-sm text-gray-400">
+                Vehicles are saved automatically when you get a quote.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {vehicles.map((v) => (
+                <div key={v.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {v.year} {v.make} {v.model}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {v.mpg} MPG &middot; {v.fuelType}
+                    </p>
+                    {v.nickname && (
+                      <p className="text-xs text-emerald-600 mt-0.5">{v.nickname}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleDeleteVehicle(v.id)}
+                    className="text-gray-300 hover:text-red-500 transition p-1"
+                    title="Remove vehicle"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
               ))}
             </div>
           )}

@@ -75,6 +75,9 @@ export default function Home() {
   // fleet vehicles, etc.) enter monthly gallons directly instead of using MPG.
   const [skipVehicle, setSkipVehicle] = useState(false);
   const [manualGallons, setManualGallons] = useState(80);
+  // WHY: savedVehicles lets logged-in users quickly select a previously used vehicle
+  // instead of re-entering year/make/model every time.
+  const [savedVehicles, setSavedVehicles] = useState<{id: string; year: number; make: string; model: string; mpg: number; fuelType: string}[]>([]);
   const [monthlyGallons, setMonthlyGallons] = useState(50);
   const [strikePrice, setStrikePrice] = useState(0);
   const [selectedTerm, setSelectedTerm] = useState(6);
@@ -105,6 +108,17 @@ export default function Home() {
       })
       .catch(() => {}); // Silently use defaults if fetch fails
   }, []);
+
+  // WHY: Fetch saved vehicles for logged-in users so they appear in Step 2.
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/member/vehicles")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setSavedVehicles(data);
+      })
+      .catch(() => {});
+  }, [session]);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -288,6 +302,8 @@ export default function Home() {
     setVehicleMpg(null);
     setVehicleFuel("");
     setVehicleLoading(false);
+    setSkipVehicle(false);
+    setManualGallons(80);
     setMonthlyGallons(50);
     setSelectedTerm(6);
   }
@@ -351,6 +367,22 @@ export default function Home() {
     }
 
     try {
+      // WHY: Auto-save the vehicle so it appears in "Your saved vehicles" next time.
+      // Fire-and-forget — don't block plan creation on vehicle save.
+      if (!skipVehicle && selectedYear && selectedMake && selectedModel && vehicleMpg) {
+        fetch("/api/member/vehicles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            year: parseInt(selectedYear),
+            make: selectedMake,
+            model: selectedModel,
+            mpg: vehicleMpg,
+            fuelType: vehicleFuel || "Regular Gasoline",
+          }),
+        }).catch(() => {}); // Non-critical — duplicates handled server-side
+      }
+
       const res = await fetch("/api/member/plans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -704,56 +736,169 @@ export default function Home() {
             </div>
           )}
 
-          {/* Step 2: Monthly Miles */}
+          {/* Step 2: Vehicle Picker */}
           {calcStep === 2 && localPrice && (
             <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-1">How many miles do you drive per month?</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">What do you drive?</h3>
                 <p className="text-gray-500 text-sm">
                   {cityState || localPrice.areaName} — avg: <span className="text-gray-900 font-semibold">${localPrice.price.toFixed(2)}/gal</span>
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {MILEAGE_PRESETS.map((preset) => (
-                  <button
-                    key={preset.label}
-                    onClick={() => setMonthlyMiles(preset.miles)}
-                    className={`p-3 rounded-xl border text-center transition ${
-                      monthlyMiles === preset.miles
-                        ? "border-emerald-500 bg-emerald-50"
-                        : "border-gray-200 bg-gray-50 hover:border-gray-300"
-                    }`}
+              {/* Saved vehicles for logged-in users */}
+              {session && savedVehicles.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-2">Your saved vehicles</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {savedVehicles.map((sv) => (
+                      <button
+                        key={sv.id}
+                        onClick={() => {
+                          setSelectedYear(String(sv.year));
+                          setSelectedMake(sv.make);
+                          setSelectedModel(sv.model);
+                          setVehicleMpg(sv.mpg);
+                          setVehicleFuel(sv.fuelType);
+                          setSkipVehicle(false);
+                        }}
+                        className={`p-3 rounded-xl border text-left transition ${
+                          selectedYear === String(sv.year) && selectedMake === sv.make && selectedModel === sv.model && vehicleMpg === sv.mpg
+                            ? "border-emerald-500 bg-emerald-50"
+                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-gray-900">{sv.year} {sv.make} {sv.model}</p>
+                        <p className="text-xs text-gray-500">{sv.mpg} MPG &middot; {sv.fuelType}</p>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+                    <div className="relative flex justify-center text-xs"><span className="bg-white px-3 text-gray-400">or search for a vehicle</span></div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Year */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Year</label>
+                  <select
+                    value={selectedYear}
+                    onChange={async (e) => {
+                      const yr = e.target.value;
+                      setSelectedYear(yr);
+                      setSelectedMake("");
+                      setSelectedModel("");
+                      setMakeOptions([]);
+                      setModelOptions([]);
+                      setVehicleMpg(null);
+                      setVehicleFuel("");
+                      if (!yr) return;
+                      setVehicleLoading(true);
+                      try {
+                        const res = await fetch(`/api/vehicles?step=makes&year=${yr}`);
+                        const data = await res.json();
+                        const items = Array.isArray(data.menuItem) ? data.menuItem : data.menuItem ? [data.menuItem] : [];
+                        setMakeOptions(items.map((i: { text: string }) => i.text));
+                      } catch { setMakeOptions([]); }
+                      setVehicleLoading(false);
+                    }}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   >
-                    <p className={`text-lg font-bold ${monthlyMiles === preset.miles ? "text-emerald-600" : "text-gray-900"}`}>
-                      {preset.miles.toLocaleString()}
-                    </p>
-                    <p className={`text-xs ${monthlyMiles === preset.miles ? "text-emerald-600" : "text-gray-500"}`}>
-                      miles per month
-                    </p>
-                    <p className={`text-xs mt-1 ${monthlyMiles === preset.miles ? "text-emerald-500" : "text-gray-400"}`}>
-                      {preset.desc}
-                    </p>
-                  </button>
-                ))}
+                    <option value="">Select year...</option>
+                    {Array.from({ length: new Date().getFullYear() - 1999 + 1 }, (_, i) => new Date().getFullYear() + 1 - i).map((yr) => (
+                      <option key={yr} value={yr}>{yr}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Make */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Make</label>
+                  <select
+                    value={selectedMake}
+                    onChange={async (e) => {
+                      const make = e.target.value;
+                      setSelectedMake(make);
+                      setSelectedModel("");
+                      setModelOptions([]);
+                      setVehicleMpg(null);
+                      setVehicleFuel("");
+                      if (!make || !selectedYear) return;
+                      setVehicleLoading(true);
+                      try {
+                        const res = await fetch(`/api/vehicles?step=models&year=${selectedYear}&make=${encodeURIComponent(make)}`);
+                        const data = await res.json();
+                        const items = Array.isArray(data.menuItem) ? data.menuItem : data.menuItem ? [data.menuItem] : [];
+                        setModelOptions(items.map((i: { text: string }) => i.text));
+                      } catch { setModelOptions([]); }
+                      setVehicleLoading(false);
+                    }}
+                    disabled={!selectedYear || makeOptions.length === 0}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
+                  >
+                    <option value="">{vehicleLoading ? "Loading..." : "Select make..."}</option>
+                    {makeOptions.map((make) => (
+                      <option key={make} value={make}>{make}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Model */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Model</label>
+                  <select
+                    value={selectedModel}
+                    onChange={async (e) => {
+                      const model = e.target.value;
+                      setSelectedModel(model);
+                      setVehicleMpg(null);
+                      setVehicleFuel("");
+                      if (!model || !selectedYear || !selectedMake) return;
+                      setVehicleLoading(true);
+                      try {
+                        const optRes = await fetch(`/api/vehicles?step=options&year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(model)}`);
+                        const optData = await optRes.json();
+                        const options = Array.isArray(optData.menuItem) ? optData.menuItem : optData.menuItem ? [optData.menuItem] : [];
+                        if (options.length > 0) {
+                          const vehRes = await fetch(`/api/vehicles?step=vehicle&id=${options[0].value}`);
+                          const vehData = await vehRes.json();
+                          const mpg = parseInt(vehData.comb08);
+                          if (!isNaN(mpg) && mpg > 0) {
+                            setVehicleMpg(mpg);
+                            setVehicleFuel(vehData.fuelType1 || "");
+                          }
+                        }
+                      } catch { /* non-critical */ }
+                      setVehicleLoading(false);
+                    }}
+                    disabled={!selectedMake || modelOptions.length === 0}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
+                  >
+                    <option value="">{vehicleLoading ? "Loading..." : "Select model..."}</option>
+                    {modelOptions.map((model) => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm text-gray-500 mb-2">
-                  Or set your own: <span className="text-gray-900 font-semibold">{monthlyMiles.toLocaleString()} miles per month</span>
-                </label>
-                <input
-                  type="range"
-                  min={200}
-                  max={4000}
-                  step={100}
-                  value={monthlyMiles}
-                  onChange={(e) => setMonthlyMiles(Number(e.target.value))}
-                  className="w-full accent-emerald-500"
-                />
-              </div>
+              {vehicleMpg && vehicleMpg > 0 && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <p className="text-sm text-gray-600">
+                    {selectedYear} {selectedMake} {selectedModel} — <span className="font-bold text-emerald-600">{vehicleMpg} MPG</span> ({vehicleFuel})
+                  </p>
+                </div>
+              )}
 
-              <div className="flex gap-3">
+              {vehicleLoading && (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  Loading vehicle data...
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => setCalcStep(1)}
                   className="px-5 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition"
@@ -761,143 +906,89 @@ export default function Home() {
                   Back
                 </button>
                 <button
-                  onClick={() => setCalcStep(3)}
-                  className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition"
+                  onClick={() => {
+                    setSkipVehicle(false);
+                    setCalcStep(3);
+                  }}
+                  disabled={!vehicleMpg}
+                  className={`px-5 py-2 text-sm font-semibold rounded-lg transition ${
+                    vehicleMpg
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  }`}
                 >
                   Next
+                </button>
+                <button
+                  onClick={() => {
+                    setSkipVehicle(true);
+                    setManualGallons(80);
+                    setCalcStep(3);
+                  }}
+                  className="ml-auto text-sm text-gray-400 hover:text-emerald-600 transition"
+                >
+                  Skip &mdash; enter gallons instead
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step 3: Vehicle Picker */}
+          {/* Step 3: Monthly Miles (vehicle selected) OR Monthly Gallons (skipped) */}
           {calcStep === 3 && localPrice && (
             <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-1">
-                  {skipVehicle ? "How much gas do you use?" : "What do you drive?"}
-                </h3>
-                <p className="text-gray-500 text-sm">
-                  {skipVehicle
-                    ? "Enter your estimated monthly fuel usage in gallons."
-                    : "We\u2019ll use your vehicle\u2019s MPG to estimate your monthly gas usage."}
-                </p>
-              </div>
-
               {!skipVehicle ? (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {/* Year */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Year</label>
-                      <select
-                        value={selectedYear}
-                        onChange={async (e) => {
-                          const yr = e.target.value;
-                          setSelectedYear(yr);
-                          setSelectedMake("");
-                          setSelectedModel("");
-                          setMakeOptions([]);
-                          setModelOptions([]);
-                          setVehicleMpg(null);
-                          setVehicleFuel("");
-                          if (!yr) return;
-                          setVehicleLoading(true);
-                          try {
-                            const res = await fetch(`/api/vehicles?step=makes&year=${yr}`);
-                            const data = await res.json();
-                            const items = Array.isArray(data.menuItem) ? data.menuItem : data.menuItem ? [data.menuItem] : [];
-                            setMakeOptions(items.map((i: { text: string }) => i.text));
-                          } catch { setMakeOptions([]); }
-                          setVehicleLoading(false);
-                        }}
-                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      >
-                        <option value="">Select year...</option>
-                        {/* WHY: EPA data goes back to 1984 but most users have 2000+ vehicles */}
-                        {Array.from({ length: new Date().getFullYear() - 1999 + 1 }, (_, i) => new Date().getFullYear() + 1 - i).map((yr) => (
-                          <option key={yr} value={yr}>{yr}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {/* Make */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Make</label>
-                      <select
-                        value={selectedMake}
-                        onChange={async (e) => {
-                          const make = e.target.value;
-                          setSelectedMake(make);
-                          setSelectedModel("");
-                          setModelOptions([]);
-                          setVehicleMpg(null);
-                          setVehicleFuel("");
-                          if (!make || !selectedYear) return;
-                          setVehicleLoading(true);
-                          try {
-                            const res = await fetch(`/api/vehicles?step=models&year=${selectedYear}&make=${encodeURIComponent(make)}`);
-                            const data = await res.json();
-                            const items = Array.isArray(data.menuItem) ? data.menuItem : data.menuItem ? [data.menuItem] : [];
-                            setModelOptions(items.map((i: { text: string }) => i.text));
-                          } catch { setModelOptions([]); }
-                          setVehicleLoading(false);
-                        }}
-                        disabled={!selectedYear || makeOptions.length === 0}
-                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
-                      >
-                        <option value="">{vehicleLoading ? "Loading..." : "Select make..."}</option>
-                        {makeOptions.map((make) => (
-                          <option key={make} value={make}>{make}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {/* Model */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Model</label>
-                      <select
-                        value={selectedModel}
-                        onChange={async (e) => {
-                          const model = e.target.value;
-                          setSelectedModel(model);
-                          setVehicleMpg(null);
-                          setVehicleFuel("");
-                          if (!model || !selectedYear || !selectedMake) return;
-                          setVehicleLoading(true);
-                          try {
-                            // WHY: Fetch options (trims) for this model, then get MPG from the first trim.
-                            // Most users don't know their exact trim — first option is a reasonable default.
-                            const optRes = await fetch(`/api/vehicles?step=options&year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(model)}`);
-                            const optData = await optRes.json();
-                            const options = Array.isArray(optData.menuItem) ? optData.menuItem : optData.menuItem ? [optData.menuItem] : [];
-                            if (options.length > 0) {
-                              const vehRes = await fetch(`/api/vehicles?step=vehicle&id=${options[0].value}`);
-                              const vehData = await vehRes.json();
-                              const mpg = parseInt(vehData.comb08);
-                              if (!isNaN(mpg) && mpg > 0) {
-                                setVehicleMpg(mpg);
-                                setVehicleFuel(vehData.fuelType1 || "");
-                              }
-                            }
-                          } catch { /* non-critical */ }
-                          setVehicleLoading(false);
-                        }}
-                        disabled={!selectedMake || modelOptions.length === 0}
-                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
-                      >
-                        <option value="">{vehicleLoading ? "Loading..." : "Select model..."}</option>
-                        {modelOptions.map((model) => (
-                          <option key={model} value={model}>{model}</option>
-                        ))}
-                      </select>
-                    </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-1">How many miles do you drive per month?</h3>
+                    <p className="text-gray-500 text-sm">
+                      {selectedYear} {selectedMake} {selectedModel} — {vehicleMpg} MPG
+                    </p>
                   </div>
 
-                  {/* Show estimated gallons when MPG is loaded */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {MILEAGE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        onClick={() => setMonthlyMiles(preset.miles)}
+                        className={`p-3 rounded-xl border text-center transition ${
+                          monthlyMiles === preset.miles
+                            ? "border-emerald-500 bg-emerald-50"
+                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                        }`}
+                      >
+                        <p className={`text-lg font-bold ${monthlyMiles === preset.miles ? "text-emerald-600" : "text-gray-900"}`}>
+                          {preset.miles.toLocaleString()}
+                        </p>
+                        <p className={`text-xs ${monthlyMiles === preset.miles ? "text-emerald-600" : "text-gray-500"}`}>
+                          miles per month
+                        </p>
+                        <p className={`text-xs mt-1 ${monthlyMiles === preset.miles ? "text-emerald-500" : "text-gray-400"}`}>
+                          {preset.desc}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-2">
+                      Or set your own: <span className="text-gray-900 font-semibold">{monthlyMiles.toLocaleString()} miles per month</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={200}
+                      max={4000}
+                      step={100}
+                      value={monthlyMiles}
+                      onChange={(e) => setMonthlyMiles(Number(e.target.value))}
+                      className="w-full accent-emerald-500"
+                    />
+                  </div>
+
                   {vehicleMpg && vehicleMpg > 0 && (
                     <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
                       <div className="flex items-baseline justify-between">
                         <span className="text-sm text-gray-600">
-                          {vehicleMpg} MPG ({vehicleFuel}) × {monthlyMiles.toLocaleString()} mi/mo
+                          {vehicleMpg} MPG × {monthlyMiles.toLocaleString()} mi/mo
                         </span>
                         <span className="text-lg font-bold text-emerald-600">
                           ~{estimateMonthlyGallons(vehicleMpg, monthlyMiles)} gal/mo
@@ -905,27 +996,16 @@ export default function Home() {
                       </div>
                     </div>
                   )}
-
-                  {vehicleLoading && (
-                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                      <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                      Loading vehicle data...
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setSkipVehicle(true);
-                      setManualGallons(80);
-                    }}
-                    className="text-sm text-gray-400 hover:text-emerald-600 transition"
-                  >
-                    My vehicle isn&apos;t listed &mdash; enter gallons manually
-                  </button>
                 </>
               ) : (
                 <>
-                  {/* Manual gallons entry */}
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-1">How much gas do you use?</h3>
+                    <p className="text-gray-500 text-sm">
+                      Enter your estimated monthly fuel usage in gallons.
+                    </p>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Monthly gallons</label>
                     <div className="flex items-center gap-4">
@@ -949,7 +1029,6 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Quick presets for common vehicle types */}
                   <div className="flex flex-wrap gap-2">
                     {[
                       { label: "Sedan", gal: 50 },
@@ -971,13 +1050,6 @@ export default function Home() {
                       </button>
                     ))}
                   </div>
-
-                  <button
-                    onClick={() => setSkipVehicle(false)}
-                    className="text-sm text-gray-400 hover:text-emerald-600 transition"
-                  >
-                    &larr; Back to vehicle search
-                  </button>
                 </>
               )}
 
@@ -997,12 +1069,7 @@ export default function Home() {
                     }
                     setCalcStep(4);
                   }}
-                  disabled={!skipVehicle && !vehicleMpg}
-                  className={`px-5 py-2 text-sm font-semibold rounded-lg transition ${
-                    skipVehicle || vehicleMpg
-                      ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  }`}
+                  className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition"
                 >
                   Next
                 </button>

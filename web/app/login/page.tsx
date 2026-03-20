@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { signIn, getProviders } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import { PumpLockLogo } from "@/components/pumplock-logo";
 
 type Providers = Awaited<ReturnType<typeof getProviders>>;
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
@@ -140,5 +140,15 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// WHY: useSearchParams() requires a Suspense boundary for Next.js
+// static generation / prerendering to work correctly.
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -153,17 +153,32 @@ export function PriceChartBg() {
 
       // ── Ticker key (upper-left, Google Finance style) ──
       // WHY: Adds realism — looks like a real commodity chart at a glance.
-      const keyX = 30;
-      let keyY = chartTop + 14;
+      const keyPad = 12;
+      const keyX = 60;
+      const keyBoxX = keyX - keyPad;
+      const keyBoxY = chartTop + 2;
+      const keyBoxW = 210;
+      const keyBoxH = 88;
+
+      // Box background + border
+      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.beginPath();
+      ctx.roundRect(keyBoxX, keyBoxY, keyBoxW, keyBoxH, 6);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.06)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      let keyY = keyBoxY + keyPad + 4;
       ctx.textAlign = "left";
 
       ctx.font = "bold 10px sans-serif";
-      ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
       ctx.fillText("RBW00:NYMEX", keyX, keyY);
       keyY += 16;
 
       ctx.font = "11px sans-serif";
-      ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
       ctx.fillText("RBOB Gasoline Futures", keyX, keyY);
       keyY += 22;
 
@@ -172,7 +187,7 @@ export function PriceChartBg() {
       const currentPrice = prices[recalcStart + pointsOnScreen - 1] ?? 0.5;
       const displayPrice = 2.00 + currentPrice * 2.50; // maps 0-1 to $2.00-$4.50
       ctx.font = "bold 22px monospace";
-      ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
       ctx.fillText(`$${displayPrice.toFixed(2)}`, keyX, keyY);
       keyY += 18;
 
@@ -180,7 +195,7 @@ export function PriceChartBg() {
       const changeAmt = (displayPrice - 2.85).toFixed(2);
       const changePct = (((displayPrice - 2.85) / 2.85) * 100).toFixed(1);
       ctx.font = "12px sans-serif";
-      ctx.fillStyle = "rgba(239, 68, 68, 0.22)";
+      ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
       ctx.fillText(`▲ +${changePct}% (+${changeAmt})  Today`, keyX, keyY);
       keyY += 14;
 
@@ -199,7 +214,7 @@ export function PriceChartBg() {
 
       ctx.font = "14px sans-serif";
       ctx.fillStyle = "rgba(239, 68, 68, 0.35)";
-      ctx.fillText("YOUR LOCKED PRICE", w - 145, strikeY - 5);
+      ctx.fillText("YOUR LOCKED PRICE", w - 195, strikeY - 5);
 
       offset += SPEED;
       animRef.current = requestAnimationFrame(draw);

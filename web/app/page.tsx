@@ -484,9 +484,8 @@ export default function Home() {
                 }}
               />
             </div>
-            {/* WHY: Badge placed outside the image container and pinned to the bottom
-                of the column so it visually aligns with the CTA buttons on the left. */}
-            <div className="absolute bottom-0 left-4 right-4 flex justify-center">
+            {/* WHY: Badge positioned to align with the CTA buttons on the left column. */}
+            <div className="absolute bottom-24 left-4 right-4 flex justify-center">
               <div className="bg-white/90 backdrop-blur rounded-xl px-5 py-3 shadow-md flex items-center gap-3">
                 <PumpLockLogo className="w-8 h-8 shrink-0" />
                 <p className="text-sm text-gray-700">

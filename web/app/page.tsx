@@ -743,32 +743,31 @@ export default function Home() {
           {/* Step 2: Vehicle Picker */}
           {calcStep === 2 && localPrice && (
             <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-1">What do you drive?</h3>
-                <p className="text-gray-500 text-sm mb-3">
-                  {cityState || localPrice.areaName} Average Fuel Prices
-                </p>
-                {/* WHY: Styled like a gas station pump topper so users
-                    instantly recognize the price format and feel grounded. */}
-                <div className="rounded-xl border border-gray-200 bg-white flex overflow-hidden shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-1">What do you drive?</h3>
+                  <p className="text-gray-500 text-sm">
+                    {cityState || localPrice.areaName} Average Fuel Prices
+                  </p>
+                </div>
+                {/* WHY: Compact pump-style price boxes sit to the right of
+                    the heading so they don't expand the card height. */}
+                <div className="flex gap-1.5 shrink-0">
                   {[
-                    { grade: "87", label: "REGULAR", price: baseRegularPrice },
-                    { grade: "91", label: "PREMIUM", price: baseRegularPrice + 0.60 },
-                    { grade: "", label: "DIESEL", price: baseRegularPrice + 0.90 },
-                  ].map((fuel, i) => (
+                    { grade: "87", label: "REG", price: baseRegularPrice },
+                    { grade: "91", label: "PREM", price: baseRegularPrice + 0.60 },
+                    { grade: "", label: "DSL", price: baseRegularPrice + 0.90 },
+                  ].map((fuel) => (
                     <div
                       key={fuel.label}
-                      className={`flex-1 text-center py-3 ${
-                        i < 2 ? "border-r border-gray-200" : ""
-                      }`}
+                      className="text-center px-2 py-1.5 rounded-lg border border-gray-200 bg-gray-50"
                     >
-                      <p className="text-[10px] font-bold tracking-widest text-gray-400 mb-0.5">
-                        {fuel.grade && <span className="text-emerald-600 mr-1">{fuel.grade}</span>}
+                      <p className="text-[8px] font-bold tracking-wider text-gray-400 leading-tight">
+                        {fuel.grade && <span className="text-emerald-600">{fuel.grade} </span>}
                         {fuel.label}
                       </p>
-                      <p className="text-xl font-black text-gray-900 font-mono tracking-tight">
-                        {fuel.price.toFixed(2)}
-                        <span className="text-xs align-top text-gray-400 ml-0.5">9</span>
+                      <p className="text-sm font-black text-gray-900 font-mono leading-tight">
+                        {fuel.price.toFixed(2)}<span className="text-[9px] align-top text-gray-400">9</span>
                       </p>
                     </div>
                   ))}

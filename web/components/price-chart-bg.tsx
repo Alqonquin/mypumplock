@@ -154,7 +154,7 @@ export function PriceChartBg() {
       // "Your max price" dashed line — positioned at ~$3.50 area
       // WHY: Shows the protection ceiling visually. Placed at 40% from top
       // so the rising price line crosses above it, illustrating the problem.
-      const strikeY = chartTop + chartH * 0.33;
+      const strikeY = chartTop + chartH * 0.55;
       ctx.setLineDash([6, 4]);
       ctx.strokeStyle = "rgba(239, 68, 68, 0.18)";
       ctx.lineWidth = 1;

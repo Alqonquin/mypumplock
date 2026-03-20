@@ -166,7 +166,23 @@ export default function PlanDetailPage() {
                     <p className="text-sm text-gray-400 mt-0.5">{vehicle}</p>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-6 text-center">
+                <div className="grid grid-cols-5 gap-6 text-center">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Fuel Type</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {plan.fuelType === "Premium Gasoline"
+                        ? "Premium"
+                        : plan.fuelType === "Diesel"
+                        ? "Diesel"
+                        : "Regular"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Daily Gallons</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {data.dailyGallons.toFixed(2)}
+                    </p>
+                  </div>
                   <div>
                     <p className="text-xs text-gray-400 mb-1">Paid</p>
                     <p className="text-lg font-bold text-gray-900">

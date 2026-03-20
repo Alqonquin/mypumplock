@@ -44,10 +44,17 @@ export default function Home() {
     if (!pending) return;
     sessionStorage.removeItem("pendingPlan");
 
+    // WHY: Migrate old sessionStorage data that used termMonths to termDays.
+    const parsed = JSON.parse(pending);
+    if (parsed.termMonths && !parsed.termDays) {
+      parsed.termDays = parsed.termMonths * 30;
+      delete parsed.termMonths;
+    }
+
     fetch("/api/member/plans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: pending,
+      body: JSON.stringify(parsed),
     }).then((res) => {
       if (res.ok) router.push("/account");
     });

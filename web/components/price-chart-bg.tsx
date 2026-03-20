@@ -17,9 +17,11 @@ const AXIS_COLOR = "rgba(0, 0, 0, 0.10)";
 const TICK_COLOR = "rgba(0, 0, 0, 0.08)";
 
 const SPEED = 0.5;
-const SEG_WIDTH = 2; // WHY: Tighter segments = more detailed, stock-chart-like line
-const VOLATILITY = 0.006;
-const UPWARD_DRIFT = 0.0003;
+const SEG_WIDTH = 3;
+// WHY: Higher volatility + stronger drift = the chart clearly trends upward
+// with realistic wiggles, not a flat ocean of noise.
+const VOLATILITY = 0.008;
+const UPWARD_DRIFT = 0.0005;
 
 // WHY: Y-axis prices span a realistic retail gas range so the chart
 // reads like real market data at a glance.

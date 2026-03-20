@@ -28,6 +28,7 @@ const MILEAGE_PRESETS = [
 ];
 
 import { PumpLockLogo } from "@/components/pumplock-logo";
+import { PriceChartBg } from "@/components/price-chart-bg";
 
 export default function Home() {
   const { data: session } = useSession();
@@ -644,8 +645,9 @@ export default function Home() {
       </section>
 
       {/* ── Calculator ── */}
-      <section id="calculator" ref={calculatorRef} className="py-20 px-4 bg-gray-50 border-t border-gray-200">
-        <div className="max-w-2xl mx-auto">
+      <section id="calculator" ref={calculatorRef} className="relative py-20 px-4 bg-gray-50 border-t border-gray-200 overflow-hidden">
+        <PriceChartBg />
+        <div className="relative max-w-2xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-black text-gray-900 text-center mb-2">
             Get Your Quote
           </h2>

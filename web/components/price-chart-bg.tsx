@@ -22,9 +22,11 @@ const SEG_WIDTH = 3;
 const VOLATILITY = 0.008;
 const UPWARD_DRIFT = 0.0004;
 
-export function PriceChartBg() {
+export function PriceChartBg({ step = 1 }: { step?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
+  const stepRef = useRef(step);
+  stepRef.current = step;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -154,6 +156,9 @@ export function PriceChartBg() {
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
+      // WHY: Only show the info boxes on step 1 — later steps have taller
+      // form cards that overlap and distort the boxes.
+      if (stepRef.current <= 1) {
       // ── Ticker key (upper-left, Google Finance style) ──
       // WHY: Adds realism — looks like a real commodity chart at a glance.
       const keyPad = 12;
@@ -338,6 +343,7 @@ export function PriceChartBg() {
         ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
         ctx.fillText("Price below locked — no rebate yet", rebX, rebY);
       }
+      } // end step <= 1
 
       offset += SPEED;
       animRef.current = requestAnimationFrame(draw);

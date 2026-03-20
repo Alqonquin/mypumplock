@@ -17,16 +17,18 @@ export async function GET(
 
   const plan = await prisma.plan.findUnique({
     where: { id },
+    include: {
+      // WHY: Fetch actual daily price records populated by the cron job.
+      dailyPrices: {
+        orderBy: { day: "asc" },
+      },
+    },
   });
 
   if (!plan || plan.userId !== session.user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // WHY: Generate simulated daily price data for the plan's term.
-  // Uses a seeded PRNG so the same plan always shows the same prices —
-  // keeps the table stable across page reloads. In production this would
-  // be replaced by actual daily price tracking from a market data feed.
   const startDate = new Date(plan.startDate);
   const endDate = new Date(plan.endDate);
   const now = new Date();
@@ -38,64 +40,28 @@ export async function GET(
     Math.max(0, Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)))
   );
 
-  const dailyGallons = plan.gallonsPerMonth / 30;
+  const dailyGallons = Math.round((plan.gallonsPerMonth / 30) * 100) / 100;
 
-  // WHY: Simple seeded PRNG from the plan ID so each plan gets
-  // a unique but reproducible price series.
-  let seed = 0;
-  for (let i = 0; i < plan.id.length; i++) {
-    seed = ((seed << 5) - seed + plan.id.charCodeAt(i)) | 0;
-  }
-  function seededRandom() {
-    seed = (seed * 1664525 + 1013904223) | 0;
-    return ((seed >>> 0) / 0xffffffff);
-  }
+  // WHY: Map DailyPrice records to the response format.
+  // The cron job populates these daily — only recorded days appear.
+  const days = plan.dailyPrices.map((dp) => ({
+    day: dp.day,
+    date: new Date(dp.date).toISOString().slice(0, 10),
+    dailyGallons: dp.dailyGallons,
+    dailyAvgPrice: dp.avgPrice,
+    maxMemberPrice: dp.memberMaxPrice,
+    dailyRebate: dp.dailyRebate,
+    totalRebate: dp.totalRebate,
+  }));
 
-  const days = [];
-  let price = plan.spotPrice;
-  let totalRebate = 0;
-
-  // WHY: Volatility of $0.03/day with slight upward drift creates
-  // a realistic-looking price series that trends above the strike.
-  const dailyVol = 0.03;
-  const drift = 0.002;
-
-  // WHY: Only show rows for days that have elapsed — we don't know
-  // future daily average prices yet.
-  for (let d = 1; d <= elapsedDays; d++) {
-    // Random walk: drift up + noise, mean-revert gently toward spot
-    const noise = (seededRandom() - 0.48) * dailyVol;
-    const revert = (plan.spotPrice - price) * 0.01;
-    price = Math.max(
-      plan.spotPrice * 0.85,
-      price + drift + revert + noise
-    );
-
-    const dailyAvgPrice = Math.round(price * 1000) / 1000;
-    const dailyRebate =
-      dailyAvgPrice > plan.strikePrice
-        ? Math.round((dailyAvgPrice - plan.strikePrice) * dailyGallons * 100) / 100
-        : 0;
-    totalRebate = Math.round((totalRebate + dailyRebate) * 100) / 100;
-
-    days.push({
-      day: d,
-      date: new Date(startDate.getTime() + (d - 1) * 86400000)
-        .toISOString()
-        .slice(0, 10),
-      dailyGallons: Math.round(dailyGallons * 100) / 100,
-      dailyAvgPrice,
-      maxMemberPrice: plan.strikePrice,
-      dailyRebate,
-      totalRebate,
-    });
-  }
+  // Strip the included dailyPrices from the plan object to keep the response clean
+  const { dailyPrices: _, ...planData } = plan;
 
   return NextResponse.json({
-    plan,
+    plan: planData,
     totalDays,
     elapsedDays,
-    dailyGallons: Math.round(dailyGallons * 100) / 100,
+    dailyGallons,
     days,
   });
 }

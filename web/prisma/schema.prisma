@@ -70,9 +70,37 @@ model Plan {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  dailyPrices     DailyPrice[]
+
   @@index([userId])
   @@index([status])
   @@index([endDate])
+}
+
+// WHY: Stores the actual daily average gas price for each active membership.
+// A daily cron job fetches the price for the member's zip/fuel type and
+// records it here. This is the source of truth for rebate calculations.
+model DailyPrice {
+  id              String   @id @default(cuid())
+  planId          String
+  plan            Plan     @relation(fields: [planId], references: [id])
+
+  // WHY: Day number (1-based) within the membership term, matching
+  // what the member sees in the daily breakdown table.
+  day             Int
+  date            DateTime @db.Date
+
+  dailyGallons    Float
+  avgPrice        Float    // Market price fetched from GasBuddy for this zip/fuel
+  memberMaxPrice  Float    // The plan's strike price (snapshot for easy querying)
+  dailyRebate     Float    // max(0, avgPrice - memberMaxPrice) × dailyGallons
+  totalRebate     Float    // Running cumulative rebate through this day
+
+  createdAt       DateTime @default(now())
+
+  @@unique([planId, day])
+  @@index([planId])
+  @@index([date])
 }
 
 model PricingConfig {

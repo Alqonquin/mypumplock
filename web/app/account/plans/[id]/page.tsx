@@ -9,6 +9,7 @@ import { PumpLockLogo } from "@/components/pumplock-logo";
 interface DayRow {
   day: number;
   date: string;
+  elapsed: boolean;
   dailyGallons: number;
   dailyAvgPrice: number;
   maxMemberPrice: number;
@@ -61,7 +62,7 @@ export default function PlanDetailPage() {
     if (authStatus === "authenticated" && planId) {
       fetch(`/api/member/plans/${planId}`)
         .then((r) => {
-          if (!r.ok) throw new Error("Plan not found");
+          if (!r.ok) throw new Error("Membership not found");
           return r.json();
         })
         .then((d) => {
@@ -129,7 +130,7 @@ export default function PlanDetailPage() {
         {loading ? (
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
             <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            Loading plan details...
+            Loading membership details...
           </div>
         ) : error ? (
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-red-500">
@@ -137,7 +138,7 @@ export default function PlanDetailPage() {
           </div>
         ) : data && plan ? (
           <>
-            {/* Plan summary card */}
+            {/* Membership summary card */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -158,7 +159,7 @@ export default function PlanDetailPage() {
                     </span>
                   </div>
                   <p className="text-sm text-gray-500">
-                    {plan.termMonths}-month plan &middot;{" "}
+                    {plan.termMonths}-month membership &middot;{" "}
                     {plan.gallonsPerMonth} gal/mo &middot;{" "}
                     {plan.cityState || plan.zip}
                   </p>
@@ -184,7 +185,7 @@ export default function PlanDetailPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">Paid</p>
+                    <p className="text-xs text-gray-400 mb-1">Membership Cost</p>
                     <p className="text-lg font-bold text-gray-900">
                       ${plan.upfrontPrice.toFixed(2)}
                     </p>
@@ -250,12 +251,17 @@ export default function PlanDetailPage() {
                     <tbody className="divide-y divide-gray-100">
                       {data.days.map((row) => {
                         const hasRebate = row.dailyRebate > 0;
+                        const isFuture = !row.elapsed;
                         return (
                           <tr
                             key={row.day}
-                            className={
-                              hasRebate ? "bg-emerald-50/40" : ""
-                            }
+                            className={`${
+                              isFuture
+                                ? "opacity-40"
+                                : hasRebate
+                                ? "bg-emerald-50/40"
+                                : ""
+                            }`}
                           >
                             <td className="px-4 py-2.5 font-medium text-gray-900">
                               {row.day}

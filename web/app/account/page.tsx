@@ -89,10 +89,10 @@ export default function AccountPage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-8">My Account</h1>
 
-        {/* Active Plans */}
+        {/* Active Memberships */}
         <section className="mb-10">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Active Plans{" "}
+            Active Memberships{" "}
             {activePlans.length > 0 && (
               <span className="text-sm font-normal text-gray-400">({activePlans.length})</span>
             )}
@@ -100,11 +100,11 @@ export default function AccountPage() {
 
           {loading ? (
             <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
-              Loading plans...
+              Loading memberships...
             </div>
           ) : activePlans.length === 0 ? (
             <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-              <p className="text-gray-500 mb-4">You don&apos;t have any active plans yet.</p>
+              <p className="text-gray-500 mb-4">You don&apos;t have any active memberships yet.</p>
               <Link
                 href="/#quote"
                 className="inline-block px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition"
@@ -129,11 +129,11 @@ export default function AccountPage() {
           )}
         </section>
 
-        {/* Past Plans */}
+        {/* Past Memberships */}
         {pastPlans.length > 0 && (
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Past Plans{" "}
+              Past Memberships{" "}
               <span className="text-sm font-normal text-gray-400">({pastPlans.length})</span>
             </h2>
             <div className="space-y-4">
@@ -180,7 +180,7 @@ function PlanCard({ plan }: { plan: Plan }) {
             </span>
           </div>
           <p className="text-sm text-gray-500">
-            {plan.termMonths}-month plan &middot; {plan.gallonsPerMonth} gal/mo &middot; {plan.cityState || plan.zip}
+            {plan.termMonths}-month membership &middot; {plan.gallonsPerMonth} gal/mo &middot; {plan.cityState || plan.zip}
           </p>
           {vehicle && (
             <p className="text-sm text-gray-400 mt-0.5">{vehicle}</p>

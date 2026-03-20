@@ -33,7 +33,6 @@ export async function GET(
   const totalDays = Math.ceil(
     (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
   );
-  // WHY: Only show rows for days that have elapsed — future days haven't happened yet.
   const elapsedDays = Math.min(
     totalDays,
     Math.max(0, Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)))
@@ -61,7 +60,9 @@ export async function GET(
   const dailyVol = 0.03;
   const drift = 0.002;
 
-  for (let d = 1; d <= elapsedDays; d++) {
+  // WHY: Generate prices for all days so the member can see the full
+  // term at a glance. Future days are marked as projections.
+  for (let d = 1; d <= totalDays; d++) {
     // Random walk: drift up + noise, mean-revert gently toward spot
     const noise = (seededRandom() - 0.48) * dailyVol;
     const revert = (plan.spotPrice - price) * 0.01;
@@ -82,6 +83,9 @@ export async function GET(
       date: new Date(startDate.getTime() + (d - 1) * 86400000)
         .toISOString()
         .slice(0, 10),
+      // WHY: Future days are projections, not actuals — the frontend
+      // can dim or label them differently.
+      elapsed: d <= elapsedDays,
       dailyGallons: Math.round(dailyGallons * 100) / 100,
       dailyAvgPrice,
       maxMemberPrice: plan.strikePrice,

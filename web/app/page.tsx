@@ -295,30 +295,52 @@ export default function Home() {
     setSelectedTerm(6);
   }
 
-  const faqs = [
+  const faqs: { q: string; a: React.ReactNode }[] = [
     {
       q: "What is PumpLock?",
-      a: "PumpLock is a gas price protection plan. You pay once upfront, and for the duration of your plan, if gas prices in your area rise above your locked-in max price, we pay you the difference for every gallon you buy.",
+      a: 'PumpLock is a digital membership that shields your budget from rising gas prices. Think of it as a "Price Ceiling" for your car. You choose a Protection Price, and if the market average in your Zip Code rises above that number, we cover the difference for your monthly gallon tier.',
     },
     {
       q: "How do I get paid when prices spike?",
-      a: "When you fill up and the pump price exceeds your max, we automatically calculate the difference and deposit it to your linked account. No claims to file, no receipts to upload.",
+      a: (
+        <>
+          <p className="mb-3">We&apos;ve made it completely frictionless.</p>
+          <p className="mb-2"><span className="font-semibold text-gray-900">Automatic Tracking:</span> We monitor the daily average price in your Zip Code using validated third-party data.</p>
+          <p className="mb-2"><span className="font-semibold text-gray-900">Daily Accrual:</span> Every day the market is above your Protection Price, a &ldquo;Membership Benefit&rdquo; is added to your account.</p>
+          <p><span className="font-semibold text-gray-900">Direct Payout:</span> At the end of the month, if your total benefit is $2.00 or more, we automatically credit your linked payment method. No receipts, no scanning, and no manual claims required.</p>
+        </>
+      ),
     },
     {
       q: "Is this insurance?",
-      a: "PumpLock is a price protection plan, not a traditional insurance product. We use financial instruments (fuel futures and options) to back every plan we sell, similar to how airlines hedge their fuel costs.",
+      a: 'No. PumpLock is a service-based membership. Unlike insurance, we do not indemnify you for personal losses or require you to "prove" you bought gas. Your benefit is tied strictly to the publicly verifiable market index in your area. If the local average goes up, you earn a benefit, regardless of where or when you choose to fill up.',
     },
     {
       q: "What if gas prices go down?",
-      a: "You pay the lower market price at the pump. Your PumpLock plan is there as a ceiling — you always pay whichever is less: the pump price or your locked max price.",
+      a: 'If gas prices stay below your Protection Price, you\u2019ve had a great month! You simply pay the lower price at the pump and enjoy the savings. Your membership fee ensures that your "Price Shield" is always active, providing you with budget certainty even if the market stays stable.',
     },
     {
       q: "What plan lengths are available?",
-      a: "We offer 1-month, 3-month, and 6-month plans. Longer plans have a lower per-month cost. All plans are prepaid upfront so we can hedge your coverage immediately.",
+      a: (
+        <>
+          <p className="mb-3">To help you lock in the best rates, we currently offer:</p>
+          <p className="mb-2"><span className="font-semibold text-gray-900">Monthly Protection:</span> For those who want flexibility month-to-month.</p>
+          <p className="mb-2"><span className="font-semibold text-gray-900">3-Month &ldquo;Quarterly&rdquo; Shield:</span> Our most popular plan, ideal for seasonal price surges (like summer travel).</p>
+          <p><span className="font-semibold text-gray-900">6-Month &ldquo;Fixed&rdquo; Protection:</span> For maximum budget stability and the lowest per-month membership rates.</p>
+        </>
+      ),
     },
     {
       q: "How is the price calculated?",
-      a: "We use an adapted Black-Scholes options pricing model — the same math used by Wall Street and major airlines to price fuel hedges — calibrated to real-time gasoline futures and local market data.",
+      a: (
+        <>
+          <p className="mb-3">Your benefit is calculated using a simple, transparent formula:</p>
+          <p className="mb-3 font-medium text-gray-900 bg-gray-50 rounded-lg px-4 py-2 text-center">
+            (Actual Local Average &minus; Your Protection Price) &times; Your Daily Gallon Allocation = Your Daily Benefit
+          </p>
+          <p>We sum up these daily wins over the course of the month to determine your total payout. We use hyper-local data for your specific Zip Code, ensuring your protection matches the prices you see at your neighborhood stations.</p>
+        </>
+      ),
     },
   ];
 

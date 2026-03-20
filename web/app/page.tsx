@@ -740,7 +740,7 @@ export default function Home() {
                 </p>
                 {/* WHY: Styled like a gas station pump topper so users
                     instantly recognize the price format and feel grounded. */}
-                <div className="bg-gray-900 rounded-xl p-3 flex gap-0 overflow-hidden">
+                <div className="rounded-xl border border-gray-200 bg-white flex overflow-hidden shadow-sm">
                   {[
                     { grade: "87", label: "REGULAR", price: baseRegularPrice },
                     { grade: "91", label: "PREMIUM", price: baseRegularPrice + 0.60 },
@@ -748,17 +748,17 @@ export default function Home() {
                   ].map((fuel, i) => (
                     <div
                       key={fuel.label}
-                      className={`flex-1 text-center py-2 ${
-                        i < 2 ? "border-r border-gray-700" : ""
+                      className={`flex-1 text-center py-3 ${
+                        i < 2 ? "border-r border-gray-200" : ""
                       }`}
                     >
                       <p className="text-[10px] font-bold tracking-widest text-gray-400 mb-0.5">
-                        {fuel.grade && <span className="text-yellow-400 mr-1">{fuel.grade}</span>}
+                        {fuel.grade && <span className="text-emerald-600 mr-1">{fuel.grade}</span>}
                         {fuel.label}
                       </p>
-                      <p className="text-xl font-black text-emerald-400 font-mono tracking-tight">
+                      <p className="text-xl font-black text-gray-900 font-mono tracking-tight">
                         {fuel.price.toFixed(2)}
-                        <span className="text-xs align-top text-emerald-500 ml-0.5">9</span>
+                        <span className="text-xs align-top text-gray-400 ml-0.5">9</span>
                       </p>
                     </div>
                   ))}

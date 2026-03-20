@@ -1121,11 +1121,6 @@ export default function Home() {
                 <p className="text-sm text-emerald-600">
                   +${(strikePrice - localPrice.price).toFixed(2)} above current price
                 </p>
-                {strikePrice > localPrice.price && (
-                  <p className="text-xs text-gray-400 mt-2">
-                    At this ceiling, you&apos;d pay up to <span className="font-semibold text-gray-600">${((strikePrice - localPrice.price) * monthlyGallons).toFixed(2)}/mo</span> more in fuel costs ({monthlyGallons} gal &times; ${(strikePrice - localPrice.price).toFixed(2)})
-                  </p>
-                )}
               </div>
 
               <div>

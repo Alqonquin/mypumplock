@@ -81,7 +81,7 @@ export default function Home() {
   const [manualGallons, setManualGallons] = useState(80);
   const [monthlyGallons, setMonthlyGallons] = useState(50);
   const [strikePrice, setStrikePrice] = useState(0);
-  const [selectedTerm, setSelectedTerm] = useState(6);
+  const [selectedTerm, setSelectedTerm] = useState(1);
   const [result, setResult] = useState<PricingResult | null>(null);
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [tiers1mo, setTiers1mo] = useState<TierRow[]>([]);
@@ -297,7 +297,7 @@ export default function Home() {
     setSkipVehicle(false);
     setManualGallons(80);
     setMonthlyGallons(50);
-    setSelectedTerm(6);
+    setSelectedTerm(1);
   }
 
   const faqs: { q: string; a: React.ReactNode }[] = [

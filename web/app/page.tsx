@@ -736,7 +736,7 @@ export default function Home() {
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-1">What do you drive?</h3>
                 <p className="text-gray-500 text-sm">
-                  {cityState || localPrice.areaName} — avg: <span className="text-gray-900 font-semibold">${localPrice.price.toFixed(2)}/gal</span>
+                  {cityState || localPrice.areaName} — Regular: <span className="text-gray-900 font-semibold">${baseRegularPrice.toFixed(2)}</span> · Premium: <span className="text-gray-900 font-semibold">${(baseRegularPrice + 0.60).toFixed(2)}</span> · Diesel: <span className="text-gray-900 font-semibold">${(baseRegularPrice + 0.40).toFixed(2)}</span>
                 </p>
               </div>
 

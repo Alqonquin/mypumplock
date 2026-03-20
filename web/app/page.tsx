@@ -71,6 +71,10 @@ export default function Home() {
   const [vehicleMpg, setVehicleMpg] = useState<number | null>(null);
   const [vehicleFuel, setVehicleFuel] = useState("");
   const [vehicleLoading, setVehicleLoading] = useState(false);
+  // WHY: skipVehicle lets users who can't find their vehicle (old trucks,
+  // fleet vehicles, etc.) enter monthly gallons directly instead of using MPG.
+  const [skipVehicle, setSkipVehicle] = useState(false);
+  const [manualGallons, setManualGallons] = useState(80);
   const [monthlyGallons, setMonthlyGallons] = useState(50);
   const [strikePrice, setStrikePrice] = useState(0);
   const [selectedTerm, setSelectedTerm] = useState(6);
@@ -770,137 +774,211 @@ export default function Home() {
           {calcStep === 3 && localPrice && (
             <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-1">What do you drive?</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">
+                  {skipVehicle ? "How much gas do you use?" : "What do you drive?"}
+                </h3>
                 <p className="text-gray-500 text-sm">
-                  We&apos;ll use your vehicle&apos;s MPG to estimate your monthly gas usage.
+                  {skipVehicle
+                    ? "Enter your estimated monthly fuel usage in gallons."
+                    : "We\u2019ll use your vehicle\u2019s MPG to estimate your monthly gas usage."}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Year */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Year</label>
-                  <select
-                    value={selectedYear}
-                    onChange={async (e) => {
-                      const yr = e.target.value;
-                      setSelectedYear(yr);
-                      setSelectedMake("");
-                      setSelectedModel("");
-                      setMakeOptions([]);
-                      setModelOptions([]);
-                      setVehicleMpg(null);
-                      setVehicleFuel("");
-                      if (!yr) return;
-                      setVehicleLoading(true);
-                      try {
-                        const res = await fetch(`/api/vehicles?step=makes&year=${yr}`);
-                        const data = await res.json();
-                        const items = Array.isArray(data.menuItem) ? data.menuItem : data.menuItem ? [data.menuItem] : [];
-                        setMakeOptions(items.map((i: { text: string }) => i.text));
-                      } catch { setMakeOptions([]); }
-                      setVehicleLoading(false);
-                    }}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  >
-                    <option value="">Select year...</option>
-                    {/* WHY: EPA data goes back to 1984 but most users have 2000+ vehicles */}
-                    {Array.from({ length: new Date().getFullYear() - 1999 + 1 }, (_, i) => new Date().getFullYear() + 1 - i).map((yr) => (
-                      <option key={yr} value={yr}>{yr}</option>
-                    ))}
-                  </select>
-                </div>
-                {/* Make */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Make</label>
-                  <select
-                    value={selectedMake}
-                    onChange={async (e) => {
-                      const make = e.target.value;
-                      setSelectedMake(make);
-                      setSelectedModel("");
-                      setModelOptions([]);
-                      setVehicleMpg(null);
-                      setVehicleFuel("");
-                      if (!make || !selectedYear) return;
-                      setVehicleLoading(true);
-                      try {
-                        const res = await fetch(`/api/vehicles?step=models&year=${selectedYear}&make=${encodeURIComponent(make)}`);
-                        const data = await res.json();
-                        const items = Array.isArray(data.menuItem) ? data.menuItem : data.menuItem ? [data.menuItem] : [];
-                        setModelOptions(items.map((i: { text: string }) => i.text));
-                      } catch { setModelOptions([]); }
-                      setVehicleLoading(false);
-                    }}
-                    disabled={!selectedYear || makeOptions.length === 0}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
-                  >
-                    <option value="">{vehicleLoading ? "Loading..." : "Select make..."}</option>
-                    {makeOptions.map((make) => (
-                      <option key={make} value={make}>{make}</option>
-                    ))}
-                  </select>
-                </div>
-                {/* Model */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Model</label>
-                  <select
-                    value={selectedModel}
-                    onChange={async (e) => {
-                      const model = e.target.value;
-                      setSelectedModel(model);
-                      setVehicleMpg(null);
-                      setVehicleFuel("");
-                      if (!model || !selectedYear || !selectedMake) return;
-                      setVehicleLoading(true);
-                      try {
-                        // WHY: Fetch options (trims) for this model, then get MPG from the first trim.
-                        // Most users don't know their exact trim — first option is a reasonable default.
-                        const optRes = await fetch(`/api/vehicles?step=options&year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(model)}`);
-                        const optData = await optRes.json();
-                        const options = Array.isArray(optData.menuItem) ? optData.menuItem : optData.menuItem ? [optData.menuItem] : [];
-                        if (options.length > 0) {
-                          const vehRes = await fetch(`/api/vehicles?step=vehicle&id=${options[0].value}`);
-                          const vehData = await vehRes.json();
-                          const mpg = parseInt(vehData.comb08);
-                          if (!isNaN(mpg) && mpg > 0) {
-                            setVehicleMpg(mpg);
-                            setVehicleFuel(vehData.fuelType1 || "");
-                          }
-                        }
-                      } catch { /* non-critical */ }
-                      setVehicleLoading(false);
-                    }}
-                    disabled={!selectedMake || modelOptions.length === 0}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
-                  >
-                    <option value="">{vehicleLoading ? "Loading..." : "Select model..."}</option>
-                    {modelOptions.map((model) => (
-                      <option key={model} value={model}>{model}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Show estimated gallons when MPG is loaded */}
-              {vehicleMpg && vehicleMpg > 0 && (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-gray-600">
-                      {vehicleMpg} MPG ({vehicleFuel}) × {monthlyMiles.toLocaleString()} mi/mo
-                    </span>
-                    <span className="text-lg font-bold text-emerald-600">
-                      ~{estimateMonthlyGallons(vehicleMpg, monthlyMiles)} gal/mo
-                    </span>
+              {!skipVehicle ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Year */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Year</label>
+                      <select
+                        value={selectedYear}
+                        onChange={async (e) => {
+                          const yr = e.target.value;
+                          setSelectedYear(yr);
+                          setSelectedMake("");
+                          setSelectedModel("");
+                          setMakeOptions([]);
+                          setModelOptions([]);
+                          setVehicleMpg(null);
+                          setVehicleFuel("");
+                          if (!yr) return;
+                          setVehicleLoading(true);
+                          try {
+                            const res = await fetch(`/api/vehicles?step=makes&year=${yr}`);
+                            const data = await res.json();
+                            const items = Array.isArray(data.menuItem) ? data.menuItem : data.menuItem ? [data.menuItem] : [];
+                            setMakeOptions(items.map((i: { text: string }) => i.text));
+                          } catch { setMakeOptions([]); }
+                          setVehicleLoading(false);
+                        }}
+                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      >
+                        <option value="">Select year...</option>
+                        {/* WHY: EPA data goes back to 1984 but most users have 2000+ vehicles */}
+                        {Array.from({ length: new Date().getFullYear() - 1999 + 1 }, (_, i) => new Date().getFullYear() + 1 - i).map((yr) => (
+                          <option key={yr} value={yr}>{yr}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Make */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Make</label>
+                      <select
+                        value={selectedMake}
+                        onChange={async (e) => {
+                          const make = e.target.value;
+                          setSelectedMake(make);
+                          setSelectedModel("");
+                          setModelOptions([]);
+                          setVehicleMpg(null);
+                          setVehicleFuel("");
+                          if (!make || !selectedYear) return;
+                          setVehicleLoading(true);
+                          try {
+                            const res = await fetch(`/api/vehicles?step=models&year=${selectedYear}&make=${encodeURIComponent(make)}`);
+                            const data = await res.json();
+                            const items = Array.isArray(data.menuItem) ? data.menuItem : data.menuItem ? [data.menuItem] : [];
+                            setModelOptions(items.map((i: { text: string }) => i.text));
+                          } catch { setModelOptions([]); }
+                          setVehicleLoading(false);
+                        }}
+                        disabled={!selectedYear || makeOptions.length === 0}
+                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
+                      >
+                        <option value="">{vehicleLoading ? "Loading..." : "Select make..."}</option>
+                        {makeOptions.map((make) => (
+                          <option key={make} value={make}>{make}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Model */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Model</label>
+                      <select
+                        value={selectedModel}
+                        onChange={async (e) => {
+                          const model = e.target.value;
+                          setSelectedModel(model);
+                          setVehicleMpg(null);
+                          setVehicleFuel("");
+                          if (!model || !selectedYear || !selectedMake) return;
+                          setVehicleLoading(true);
+                          try {
+                            // WHY: Fetch options (trims) for this model, then get MPG from the first trim.
+                            // Most users don't know their exact trim — first option is a reasonable default.
+                            const optRes = await fetch(`/api/vehicles?step=options&year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(model)}`);
+                            const optData = await optRes.json();
+                            const options = Array.isArray(optData.menuItem) ? optData.menuItem : optData.menuItem ? [optData.menuItem] : [];
+                            if (options.length > 0) {
+                              const vehRes = await fetch(`/api/vehicles?step=vehicle&id=${options[0].value}`);
+                              const vehData = await vehRes.json();
+                              const mpg = parseInt(vehData.comb08);
+                              if (!isNaN(mpg) && mpg > 0) {
+                                setVehicleMpg(mpg);
+                                setVehicleFuel(vehData.fuelType1 || "");
+                              }
+                            }
+                          } catch { /* non-critical */ }
+                          setVehicleLoading(false);
+                        }}
+                        disabled={!selectedMake || modelOptions.length === 0}
+                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
+                      >
+                        <option value="">{vehicleLoading ? "Loading..." : "Select model..."}</option>
+                        {modelOptions.map((model) => (
+                          <option key={model} value={model}>{model}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                </div>
-              )}
 
-              {vehicleLoading && (
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                  Loading vehicle data...
-                </div>
+                  {/* Show estimated gallons when MPG is loaded */}
+                  {vehicleMpg && vehicleMpg > 0 && (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-sm text-gray-600">
+                          {vehicleMpg} MPG ({vehicleFuel}) × {monthlyMiles.toLocaleString()} mi/mo
+                        </span>
+                        <span className="text-lg font-bold text-emerald-600">
+                          ~{estimateMonthlyGallons(vehicleMpg, monthlyMiles)} gal/mo
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {vehicleLoading && (
+                    <div className="flex items-center gap-2 text-sm text-gray-400">
+                      <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      Loading vehicle data...
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setSkipVehicle(true);
+                      setManualGallons(80);
+                    }}
+                    className="text-sm text-gray-400 hover:text-emerald-600 transition"
+                  >
+                    My vehicle isn&apos;t listed &mdash; enter gallons manually
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Manual gallons entry */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Monthly gallons</label>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="range"
+                        min={20}
+                        max={500}
+                        step={5}
+                        value={manualGallons}
+                        onChange={(e) => setManualGallons(Number(e.target.value))}
+                        className="flex-1 accent-emerald-500"
+                      />
+                      <div className="w-24 text-center">
+                        <span className="text-2xl font-bold text-gray-900">{manualGallons}</span>
+                        <span className="text-sm text-gray-500 ml-1">gal</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-400 mt-1 px-1">
+                      <span>20 gal</span>
+                      <span>500 gal</span>
+                    </div>
+                  </div>
+
+                  {/* Quick presets for common vehicle types */}
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: "Sedan", gal: 50 },
+                      { label: "SUV", gal: 80 },
+                      { label: "Truck", gal: 120 },
+                      { label: "Work Van", gal: 160 },
+                      { label: "Fleet Vehicle", gal: 250 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        onClick={() => setManualGallons(preset.gal)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-full border transition ${
+                          manualGallons === preset.gal
+                            ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                            : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
+                        }`}
+                      >
+                        {preset.label} (~{preset.gal} gal)
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setSkipVehicle(false)}
+                    className="text-sm text-gray-400 hover:text-emerald-600 transition"
+                  >
+                    &larr; Back to vehicle search
+                  </button>
+                </>
               )}
 
               <div className="flex gap-3">
@@ -912,14 +990,16 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => {
-                    if (vehicleMpg && vehicleMpg > 0) {
+                    if (skipVehicle) {
+                      setMonthlyGallons(manualGallons);
+                    } else if (vehicleMpg && vehicleMpg > 0) {
                       setMonthlyGallons(estimateMonthlyGallons(vehicleMpg, monthlyMiles));
                     }
                     setCalcStep(4);
                   }}
-                  disabled={!vehicleMpg}
+                  disabled={!skipVehicle && !vehicleMpg}
                   className={`px-5 py-2 text-sm font-semibold rounded-lg transition ${
-                    vehicleMpg
+                    skipVehicle || vehicleMpg
                       ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                       : "bg-gray-200 text-gray-400 cursor-not-allowed"
                   }`}

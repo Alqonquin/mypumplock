@@ -63,7 +63,7 @@ export default function Home() {
   const [selectedAddress, setSelectedAddress] = useState<AddressResult | null>(null);
   const [localPrice, setLocalPrice] = useState<LocalPriceResult | null>(null);
   // WHY: Store the original Regular gas price so fuel type adjustments
-  // (Premium +$0.60, Diesel +$0.40) don't compound when the user goes back.
+  // (Premium +$0.60, Diesel +$0.90) don't compound when the user goes back.
   const [baseRegularPrice, setBaseRegularPrice] = useState(0);
   const [cityState, setCityState] = useState("");
   const [monthlyMiles, setMonthlyMiles] = useState(1000);
@@ -744,7 +744,7 @@ export default function Home() {
                   {[
                     { grade: "87", label: "REGULAR", price: baseRegularPrice },
                     { grade: "91", label: "PREMIUM", price: baseRegularPrice + 0.60 },
-                    { grade: "", label: "DIESEL", price: baseRegularPrice + 0.40 },
+                    { grade: "", label: "DIESEL", price: baseRegularPrice + 0.90 },
                   ].map((fuel, i) => (
                     <div
                       key={fuel.label}
@@ -1086,7 +1086,7 @@ export default function Home() {
                     if (baseRegularPrice > 0) {
                       let adjusted = baseRegularPrice;
                       if (vehicleFuel === "Premium Gasoline") adjusted += 0.60;
-                      else if (vehicleFuel === "Diesel") adjusted += 0.40;
+                      else if (vehicleFuel === "Diesel") adjusted += 0.90;
                       if (localPrice) {
                         setLocalPrice({ ...localPrice, price: adjusted });
                       }

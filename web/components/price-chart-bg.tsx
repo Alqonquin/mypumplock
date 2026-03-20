@@ -203,9 +203,9 @@ export function PriceChartBg() {
       // WHY: Shows the protection ceiling visually. Placed at 40% from top
       // so the rising price line crosses above it, illustrating the problem.
       const strikeY = chartTop + chartH * 0.55;
-      ctx.setLineDash([6, 4]);
-      ctx.strokeStyle = "rgba(239, 68, 68, 0.18)";
-      ctx.lineWidth = 1;
+      ctx.setLineDash([8, 5]);
+      ctx.strokeStyle = "rgba(239, 68, 68, 0.40)";
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(0, strikeY);
       ctx.lineTo(w, strikeY);

@@ -166,7 +166,7 @@ export function PriceChartBg() {
 
       ctx.font = "11px sans-serif";
       ctx.fillStyle = "rgba(239, 68, 68, 0.35)";
-      ctx.fillText("YOUR LOCKED PRICE", w - 105, strikeY - 5);
+      ctx.fillText("YOUR LOCKED PRICE", 8, strikeY - 5);
 
       offset += SPEED;
       animRef.current = requestAnimationFrame(draw);

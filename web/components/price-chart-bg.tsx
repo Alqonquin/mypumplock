@@ -153,7 +153,7 @@ export function PriceChartBg() {
 
       // ── Ticker key (upper-left, Google Finance style) ──
       // WHY: Adds realism — looks like a real commodity chart at a glance.
-      const keyX = 12;
+      const keyX = 30;
       let keyY = chartTop + 14;
       ctx.textAlign = "left";
 

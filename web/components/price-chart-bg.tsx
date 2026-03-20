@@ -359,7 +359,8 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none"
+      className="absolute top-0 left-0 w-full pointer-events-none"
+      style={{ height: "100vh", maxHeight: "100vh" }}
       aria-hidden="true"
     />
   );

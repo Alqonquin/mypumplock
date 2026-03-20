@@ -170,6 +170,7 @@ function PlanCard({ plan }: { plan: Plan }) {
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState<PlanDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(false);
 
   const start = new Date(plan.startDate);
   const end = new Date(plan.endDate);
@@ -195,13 +196,20 @@ function PlanCard({ plan }: { plan: Plan }) {
     // WHY: Fetch detail data on first expand, cache after that.
     if (next && !detail && !detailLoading) {
       setDetailLoading(true);
+      setDetailError(false);
       fetch(`/api/member/plans/${plan.id}`)
-        .then((r) => r.json())
+        .then((r) => {
+          if (!r.ok) throw new Error();
+          return r.json();
+        })
         .then((d) => {
           setDetail(d);
           setDetailLoading(false);
         })
-        .catch(() => setDetailLoading(false));
+        .catch(() => {
+          setDetailError(true);
+          setDetailLoading(false);
+        });
     }
   }
 
@@ -273,6 +281,10 @@ function PlanCard({ plan }: { plan: Plan }) {
             <div className="p-8 text-center text-gray-400">
               <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
               Loading details...
+            </div>
+          ) : detailError ? (
+            <div className="p-8 text-center text-red-500 text-sm">
+              Failed to load details. Please try again.
             </div>
           ) : detail ? (
             <>

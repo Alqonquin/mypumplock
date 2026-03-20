@@ -4,23 +4,29 @@ import { useEffect, useRef } from "react";
 
 // WHY: Decorative canvas that draws a scrolling oil-price chart trending
 // upward — visually demonstrates the problem PumpLock solves (rising prices)
-// with a dashed "Your max price" line showing protection.
+// with a dashed "Your locked price" line showing protection. Styled to
+// resemble a real financial terminal / Google Finance chart.
 
-const LINE_COLOR = "rgba(5, 150, 105, 0.22)";
-const FILL_TOP = "rgba(5, 150, 105, 0.08)";
+const LINE_COLOR = "rgba(5, 150, 105, 0.30)";
+const FILL_TOP = "rgba(5, 150, 105, 0.10)";
 const FILL_BOT = "rgba(5, 150, 105, 0.00)";
-const GRID_COLOR = "rgba(0, 0, 0, 0.04)";
-const LABEL_COLOR = "rgba(0, 0, 0, 0.10)";
+const GRID_COLOR = "rgba(0, 0, 0, 0.05)";
+const GRID_COLOR_MINOR = "rgba(0, 0, 0, 0.025)";
+const LABEL_COLOR = "rgba(0, 0, 0, 0.13)";
+const AXIS_COLOR = "rgba(0, 0, 0, 0.10)";
+const TICK_COLOR = "rgba(0, 0, 0, 0.08)";
 
-// WHY: Speed tuned so the chart scrolls smoothly — fast enough to feel alive
-// but slow enough not to distract from the quote form on top.
 const SPEED = 0.5;
-const SEG_WIDTH = 3;
+const SEG_WIDTH = 2; // WHY: Tighter segments = more detailed, stock-chart-like line
+const VOLATILITY = 0.006;
+const UPWARD_DRIFT = 0.0003;
 
-// WHY: Upward drift makes the chart trend higher over time (the "problem"),
-// while mean-reversion keeps it from running off the canvas.
-const VOLATILITY = 0.008;
-const UPWARD_DRIFT = 0.0004;
+// WHY: Y-axis prices span a realistic retail gas range so the chart
+// reads like real market data at a glance.
+const PRICE_MIN = 2.00;
+const PRICE_MAX = 5.00;
+const PRICE_STEP = 0.25; // tick every 25 cents
+const PRICE_MAJOR_STEP = 0.50; // bold grid every 50 cents
 
 export function PriceChartBg() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,11 +43,13 @@ export function PriceChartBg() {
     let prices: number[] = [];
     let offset = 0;
 
+    // WHY: Volume bars add visual density like a real trading terminal.
+    // Generated alongside prices — taller bars on bigger price moves.
+    let volumes: number[] = [];
+
     function generatePrice(prev: number): number {
-      // WHY: Combines upward drift with mean-reversion to a ceiling around 0.75.
-      // This creates a chart that trends up, plateaus, occasionally dips, and resumes climbing.
-      const ceiling = 0.75;
-      const floor = 0.2;
+      const ceiling = 0.78;
+      const floor = 0.18;
       const revert = prev > ceiling ? (ceiling - prev) * 0.02 : prev < floor ? (floor - prev) * 0.02 : 0;
       const drift = prev < ceiling ? UPWARD_DRIFT : 0;
       return Math.max(0.05, Math.min(0.95,
@@ -58,12 +66,15 @@ export function PriceChartBg() {
       canvas!.height = h * dpr;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const pointsNeeded = Math.ceil(w / SEG_WIDTH) + 100;
+      const pointsNeeded = Math.ceil(w / SEG_WIDTH) + 150;
       if (prices.length < pointsNeeded) {
-        // WHY: Start low so the upward trend is visible as the chart scrolls.
-        const last = prices.length > 0 ? prices[prices.length - 1] : 0.25;
+        const last = prices.length > 0 ? prices[prices.length - 1] : 0.22;
         for (let i = prices.length; i < pointsNeeded; i++) {
-          prices.push(generatePrice(i === 0 ? last : prices[i - 1]));
+          const prev = i === 0 ? last : prices[i - 1];
+          const p = generatePrice(prev);
+          prices.push(p);
+          // WHY: Volume correlates with price movement magnitude — looks realistic.
+          volumes.push(0.2 + Math.abs(p - prev) * 30 + Math.random() * 0.3);
         }
       }
     }
@@ -72,66 +83,161 @@ export function PriceChartBg() {
       if (!ctx) return;
       ctx.clearRect(0, 0, w, h);
 
-      const chartTop = h * 0.08;
-      const chartBot = h * 0.92;
+      // WHY: Leave margins for axis labels — mimics real chart framing.
+      const marginLeft = 50;
+      const marginRight = 12;
+      const marginTop = 16;
+      const marginBot = 40;
+      const chartLeft = marginLeft;
+      const chartRight = w - marginRight;
+      const chartTop = marginTop;
+      const chartBot = h - marginBot;
+      const chartW = chartRight - chartLeft;
       const chartH = chartBot - chartTop;
 
-      // Horizontal grid lines
-      ctx.strokeStyle = GRID_COLOR;
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= 5; i++) {
-        const y = chartTop + (chartH * i) / 5;
+      // WHY: Volume bars sit in the bottom 12% of the chart area,
+      // faint enough not to compete with the price line.
+      const volH = chartH * 0.12;
+      const volBot = chartBot;
+
+      // ── Y-axis: price grid lines + labels ──
+      const priceRange = PRICE_MAX - PRICE_MIN;
+      for (let p = PRICE_MIN; p <= PRICE_MAX; p += PRICE_STEP) {
+        const yFrac = 1 - (p - PRICE_MIN) / priceRange;
+        const y = chartTop + yFrac * chartH;
+        const isMajor = Math.abs(p % PRICE_MAJOR_STEP) < 0.01;
+
+        // Grid line
+        ctx.strokeStyle = isMajor ? GRID_COLOR : GRID_COLOR_MINOR;
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
+        ctx.moveTo(chartLeft, y);
+        ctx.lineTo(chartRight, y);
         ctx.stroke();
+
+        // Tick mark on Y-axis
+        ctx.strokeStyle = AXIS_COLOR;
+        ctx.beginPath();
+        ctx.moveTo(chartLeft - 4, y);
+        ctx.lineTo(chartLeft, y);
+        ctx.stroke();
+
+        // Price label
+        if (isMajor) {
+          ctx.font = "10px monospace";
+          ctx.fillStyle = LABEL_COLOR;
+          ctx.textAlign = "right";
+          ctx.fillText(`$${p.toFixed(2)}`, chartLeft - 7, y + 3);
+        }
       }
 
-      // Y-axis price labels (gas prices rising)
-      ctx.font = "10px monospace";
-      ctx.fillStyle = LABEL_COLOR;
-      const labels = ["$4.50", "$4.00", "$3.50", "$3.00", "$2.50", "$2.00"];
-      for (let i = 0; i <= 5; i++) {
-        const y = chartTop + (chartH * i) / 5;
-        ctx.fillText(labels[i], 6, y - 4);
+      // Y-axis vertical line
+      ctx.strokeStyle = AXIS_COLOR;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(chartLeft, chartTop);
+      ctx.lineTo(chartLeft, chartBot);
+      ctx.stroke();
+
+      // X-axis horizontal line
+      ctx.beginPath();
+      ctx.moveTo(chartLeft, chartBot);
+      ctx.lineTo(chartRight, chartBot);
+      ctx.stroke();
+
+      // ── X-axis: time labels + vertical grid + tick marks ──
+      // WHY: Fake 30-min interval timestamps that scroll with the chart
+      // create the appearance of a real intraday chart.
+      const timeLabels = [
+        "9:30", "10:00", "10:30", "11:00", "11:30",
+        "12:00", "12:30", "1:00", "1:30", "2:00",
+        "2:30", "3:00", "3:30", "4:00",
+      ];
+      // WHY: 120px spacing between time labels — tight enough to fill the chart
+      // but readable. Using modular offset so labels scroll with the chart.
+      const timeSpacing = 120;
+      const totalTimeWidth = timeLabels.length * timeSpacing;
+
+      for (let i = 0; i < timeLabels.length; i++) {
+        const rawX = chartLeft + i * timeSpacing - (offset * 0.3) % totalTimeWidth;
+        // Wrap around
+        const x = ((rawX - chartLeft) % totalTimeWidth + totalTimeWidth) % totalTimeWidth + chartLeft;
+        if (x < chartLeft + 10 || x > chartRight - 10) continue;
+
+        // Vertical grid line
+        ctx.strokeStyle = GRID_COLOR_MINOR;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, chartTop);
+        ctx.lineTo(x, chartBot);
+        ctx.stroke();
+
+        // Tick mark
+        ctx.strokeStyle = TICK_COLOR;
+        ctx.beginPath();
+        ctx.moveTo(x, chartBot);
+        ctx.lineTo(x, chartBot + 5);
+        ctx.stroke();
+
+        // Time label
+        ctx.font = "9px monospace";
+        ctx.fillStyle = LABEL_COLOR;
+        ctx.textAlign = "center";
+        ctx.fillText(timeLabels[i], x, chartBot + 15);
       }
 
-      // Price line
+      // Axis labels
+      ctx.font = "8px sans-serif";
+      ctx.fillStyle = "rgba(0,0,0,0.08)";
+      ctx.textAlign = "center";
+      ctx.fillText("RBOB Gasoline Futures (USD/gal)", chartLeft + chartW / 2, chartBot + 30);
+
+      // ── Price data ──
       const startIdx = Math.floor(offset / SEG_WIDTH);
       const subOffset = offset % SEG_WIDTH;
-      const pointsOnScreen = Math.ceil(w / SEG_WIDTH) + 2;
+      const pointsOnScreen = Math.ceil(chartW / SEG_WIDTH) + 2;
 
-      // Generate new points as needed
       while (startIdx + pointsOnScreen >= prices.length) {
-        prices.push(generatePrice(prices[prices.length - 1]));
+        const prev = prices[prices.length - 1];
+        const p = generatePrice(prev);
+        prices.push(p);
+        volumes.push(0.2 + Math.abs(p - prev) * 30 + Math.random() * 0.3);
       }
 
-      // Trim old points to prevent memory growth
-      // WHY: Keep a buffer of 200 behind the visible window, drop the rest.
+      // Trim old data
       if (startIdx > 200) {
         prices = prices.slice(startIdx - 200);
+        volumes = volumes.slice(startIdx - 200);
         offset -= (startIdx - 200) * SEG_WIDTH;
       }
 
-      const recalcStart = Math.floor(offset / SEG_WIDTH);
-      const recalcSub = offset % SEG_WIDTH;
+      const si = Math.floor(offset / SEG_WIDTH);
+      const so = offset % SEG_WIDTH;
 
-      // Build path points
+      // ── Volume bars ──
+      // WHY: Every 6th segment gets a volume bar to avoid clutter.
+      ctx.fillStyle = "rgba(5, 150, 105, 0.06)";
+      for (let i = 0; i <= pointsOnScreen; i += 6) {
+        const x = chartLeft + i * SEG_WIDTH - so;
+        if (x < chartLeft || x > chartRight) continue;
+        const vol = volumes[si + i] ?? 0.3;
+        const barH = vol * volH;
+        ctx.fillRect(x - 2, volBot - barH, 4, barH);
+      }
+
+      // ── Build price path ──
       const points: { x: number; y: number }[] = [];
       for (let i = 0; i <= pointsOnScreen; i++) {
-        const x = i * SEG_WIDTH - recalcSub;
-        const price = prices[recalcStart + i] ?? 0.5;
-        // WHY: Invert so higher price = higher on screen (lower y value)
+        const x = chartLeft + i * SEG_WIDTH - so;
+        const price = prices[si + i] ?? 0.5;
         const y = chartTop + (1 - price) * chartH;
         points.push({ x, y });
       }
 
-      // Fill under the line
+      // Fill under line
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x, points[i].y);
-      }
+      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
       ctx.lineTo(points[points.length - 1].x, chartBot);
       ctx.lineTo(points[0].x, chartBot);
       ctx.closePath();
@@ -141,32 +247,98 @@ export function PriceChartBg() {
       ctx.fillStyle = grad;
       ctx.fill();
 
-      // Stroke the price line
+      // Price line
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x, points[i].y);
-      }
+      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
       ctx.strokeStyle = LINE_COLOR;
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // "Your max price" dashed line — positioned at ~$3.50 area
-      // WHY: Shows the protection ceiling visually. Placed at 40% from top
-      // so the rising price line crosses above it, illustrating the problem.
-      const strikeY = chartTop + chartH * 0.33;
+      // ── Current price indicator (right edge) ──
+      // WHY: A dot + price badge on the right edge mimics the live price
+      // readout on Google Finance / Bloomberg charts.
+      const lastPt = points[points.length - 1];
+      const currentPrice = prices[si + pointsOnScreen] ?? 0.5;
+      const displayPrice = PRICE_MIN + currentPrice * priceRange;
+
+      // Dot
+      ctx.beginPath();
+      ctx.arc(lastPt.x, lastPt.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(5, 150, 105, 0.35)";
+      ctx.fill();
+
+      // Price badge
+      ctx.fillStyle = "rgba(5, 150, 105, 0.15)";
+      const badgeW = 48;
+      const badgeH = 18;
+      const badgeX = chartRight - badgeW - 2;
+      const badgeY = lastPt.y - badgeH / 2;
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3);
+      ctx.fill();
+      ctx.font = "bold 10px monospace";
+      ctx.fillStyle = "rgba(5, 150, 105, 0.45)";
+      ctx.textAlign = "center";
+      ctx.fillText(`$${displayPrice.toFixed(2)}`, badgeX + badgeW / 2, badgeY + 13);
+
+      // ── "Your locked price" dashed line ──
+      const strikePriceFrac = (3.50 - PRICE_MIN) / priceRange;
+      const strikeY = chartTop + (1 - strikePriceFrac) * chartH;
+
       ctx.setLineDash([6, 4]);
       ctx.strokeStyle = "rgba(239, 68, 68, 0.18)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(0, strikeY);
-      ctx.lineTo(w, strikeY);
+      ctx.moveTo(chartLeft, strikeY);
+      ctx.lineTo(chartRight, strikeY);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.font = "9px sans-serif";
-      ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
-      ctx.fillText("YOUR LOCKED PRICE", w - 105, strikeY - 5);
+      // Strike label
+      ctx.font = "bold 8px sans-serif";
+      ctx.fillStyle = "rgba(239, 68, 68, 0.22)";
+      ctx.textAlign = "left";
+      ctx.fillText("YOUR LOCKED PRICE  $3.50", chartLeft + 6, strikeY - 5);
+
+      // ── OHLC-style mini candles (sparse, for texture) ──
+      // WHY: Small candlestick-like marks scattered across the chart add
+      // the visual density of a real trading terminal.
+      for (let i = 0; i <= pointsOnScreen; i += 12) {
+        const x = chartLeft + i * SEG_WIDTH - so;
+        if (x < chartLeft + 5 || x > chartRight - 5) continue;
+        const p1 = prices[si + i] ?? 0.5;
+        const p2 = prices[si + i + 1] ?? p1;
+        const open = chartTop + (1 - p1) * chartH;
+        const close = chartTop + (1 - p2) * chartH;
+        const high = Math.min(open, close) - 2;
+        const low = Math.max(open, close) + 2;
+        const isUp = close < open; // lower y = higher price = green
+
+        // Wick
+        ctx.strokeStyle = isUp ? "rgba(5, 150, 105, 0.10)" : "rgba(239, 68, 68, 0.08)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, high);
+        ctx.lineTo(x, low);
+        ctx.stroke();
+
+        // Body
+        ctx.fillStyle = isUp ? "rgba(5, 150, 105, 0.08)" : "rgba(239, 68, 68, 0.06)";
+        const bodyTop = Math.min(open, close);
+        const bodyH = Math.max(1, Math.abs(close - open));
+        ctx.fillRect(x - 2, bodyTop, 4, bodyH);
+      }
+
+      // ── Crosshair-style horizontal line at current price ──
+      ctx.setLineDash([2, 3]);
+      ctx.strokeStyle = "rgba(5, 150, 105, 0.12)";
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(chartLeft, lastPt.y);
+      ctx.lineTo(chartRight, lastPt.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
 
       offset += SPEED;
       animRef.current = requestAnimationFrame(draw);

@@ -10,7 +10,7 @@ const LINE_COLOR = "rgba(5, 150, 105, 0.22)";
 const FILL_TOP = "rgba(5, 150, 105, 0.08)";
 const FILL_BOT = "rgba(5, 150, 105, 0.00)";
 const GRID_COLOR = "rgba(0, 0, 0, 0.04)";
-const LABEL_COLOR = "rgba(0, 0, 0, 0.10)";
+const LABEL_COLOR = "rgba(0, 0, 0, 0.18)";
 
 // WHY: Speed tuned so the chart scrolls smoothly — fast enough to feel alive
 // but slow enough not to distract from the quote form on top.
@@ -88,7 +88,7 @@ export function PriceChartBg() {
       }
 
       // Y-axis price labels (gas prices rising)
-      ctx.font = "10px monospace";
+      ctx.font = "12px monospace";
       ctx.fillStyle = LABEL_COLOR;
       const labels = ["$4.50", "$4.00", "$3.50", "$3.00", "$2.50", "$2.00"];
       for (let i = 0; i <= 5; i++) {
@@ -164,8 +164,8 @@ export function PriceChartBg() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.font = "9px sans-serif";
-      ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
+      ctx.font = "11px sans-serif";
+      ctx.fillStyle = "rgba(239, 68, 68, 0.35)";
       ctx.fillText("YOUR LOCKED PRICE", w - 105, strikeY - 5);
 
       offset += SPEED;

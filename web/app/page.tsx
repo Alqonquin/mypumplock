@@ -58,6 +58,7 @@ export default function Home() {
   const [locationQuery, setLocationQuery] = useState("");
   const [addressResults, setAddressResults] = useState<AddressResult[]>([]);
   const [addressLoading, setAddressLoading] = useState(false);
+  const [priceLoading, setPriceLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [nonUsError, setNonUsError] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<AddressResult | null>(null);
@@ -181,6 +182,8 @@ export default function Home() {
     const zip = locationQuery.replace(/\D/g, "");
     if (zip.length !== 5) return;
 
+    setPriceLoading(true);
+
     // WHY: Fetch live AAA pricing and city name in parallel for speed.
     let livePrice: number | null = null;
     let stateCode = "";
@@ -222,7 +225,7 @@ export default function Home() {
       areaName = stateCode;
     } else {
       const fallback = lookupPrice(zip);
-      if (fallback.source === "national") return;
+      if (fallback.source === "national") { setPriceLoading(false); return; }
       finalPrice = fallback.price;
       areaName = fallback.areaName;
     }
@@ -234,6 +237,7 @@ export default function Home() {
     setLocalPrice({ price: finalPrice, areaName, source: "state" });
     setBaseRegularPrice(finalPrice);
     setStrikePrice(Math.round((finalPrice + 0.50) * 100) / 100);
+    setPriceLoading(false);
     setCalcStep(2);
   }
 
@@ -718,15 +722,21 @@ export default function Home() {
 
               <button
                 onClick={handleLocationSubmit}
-                disabled={locationQuery.length !== 5}
+                disabled={locationQuery.length !== 5 || priceLoading}
                 className={`px-5 py-2 text-sm font-semibold rounded-lg transition ${
-                  locationQuery.length === 5
+                  locationQuery.length === 5 && !priceLoading
                     ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                 }`}
               >
-                Next
+                {priceLoading ? "Finding prices..." : "Next"}
               </button>
+              {priceLoading && (
+                <div className="flex items-center gap-2 text-sm text-emerald-600">
+                  <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  Finding your gas prices...
+                </div>
+              )}
             </div>
           )}
 

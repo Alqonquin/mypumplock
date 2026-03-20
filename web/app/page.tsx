@@ -736,7 +736,7 @@ export default function Home() {
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-1">What do you drive?</h3>
                 <p className="text-gray-500 text-sm mb-3">
-                  {cityState || localPrice.areaName}
+                  {cityState || localPrice.areaName} Average Fuel Prices
                 </p>
                 {/* WHY: Styled like a gas station pump topper so users
                     instantly recognize the price format and feel grounded. */}

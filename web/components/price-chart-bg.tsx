@@ -156,9 +156,6 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // WHY: Only show the info boxes on step 1 — later steps have taller
-      // form cards that overlap and distort the boxes.
-      if (stepRef.current <= 1) {
       // ── Ticker key (upper-left, Google Finance style) ──
       // WHY: Adds realism — looks like a real commodity chart at a glance.
       const keyPad = 12;
@@ -343,8 +340,6 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
         ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
         ctx.fillText("Price below locked — no rebate yet", rebX, rebY);
       }
-      } // end step <= 1
-
       offset += SPEED;
       animRef.current = requestAnimationFrame(draw);
     }

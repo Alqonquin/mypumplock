@@ -637,7 +637,7 @@ export default function Home() {
             How PumpLock Works
           </h2>
           <p className="text-gray-500 text-center mb-16 max-w-lg mx-auto">
-            No car inspections. No paperwork. No hassle.
+            No car inspections. No receipts. No hassle.
           </p>
 
           <div className="grid sm:grid-cols-3 gap-6 relative">

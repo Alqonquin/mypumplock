@@ -8,9 +8,11 @@ import { useEffect, useRef } from "react";
 
 // WHY: Muted green tones so the bills blend into the emerald background
 // without competing with the white CTA text on top.
-const BILL_STROKE = "rgba(255, 255, 255, 0.08)";
-const BILL_FILL = "rgba(255, 255, 255, 0.03)";
-const DETAIL_COLOR = "rgba(255, 255, 255, 0.06)";
+// WHY: Bumped from 0.08/0.03/0.06 — too invisible at those levels.
+// These values are visible but still don't compete with the white CTA text.
+const BILL_STROKE = "rgba(255, 255, 255, 0.18)";
+const BILL_FILL = "rgba(255, 255, 255, 0.07)";
+const DETAIL_COLOR = "rgba(255, 255, 255, 0.14)";
 
 export function DollarWallBg() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

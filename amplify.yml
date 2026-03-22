@@ -15,6 +15,10 @@ applications:
             - npx prisma db push
         build:
           commands:
+            # WHY: Amplify makes env vars available at build time but NOT at
+            # SSR Lambda runtime. Writing them to .env.production ensures
+            # Next.js standalone bundles them into the server output.
+            - env | grep -E '^(DATABASE_URL|NEXTAUTH_SECRET|NEXTAUTH_URL|GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET)=' > .env.production
             - npm run build
       artifacts:
         baseDirectory: .next

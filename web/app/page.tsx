@@ -527,7 +527,7 @@ export default function Home() {
           loop
           muted
           playsInline
-          className="absolute inset-0 w-full h-full object-cover object-right"
+          className="absolute inset-0 w-full h-full object-cover object-left"
         >
           <source src="/pump-counter.mp4" type="video/mp4" />
         </video>

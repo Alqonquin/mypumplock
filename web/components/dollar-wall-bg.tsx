@@ -10,15 +10,15 @@ export function DollarWallBg() {
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
       <div
         style={{
-          // WHY: 15° tilt makes the dollar pattern feel scattered/organic
-          // instead of a rigid grid. The oversized dimensions (-20% inset,
-          // 140% size) ensure the rotated tile still covers the full section
-          // without leaving empty corners.
+          // WHY: 15° rotation exposes corners. The inner div must extend
+          // well beyond the clipping parent so the tiled pattern covers
+          // every pixel. -50% inset + 200% size guarantees full coverage
+          // at 15° for any aspect ratio.
           position: "absolute",
-          top: "-20%",
-          left: "-20%",
-          width: "140%",
-          height: "140%",
+          top: "-50%",
+          left: "-50%",
+          width: "200%",
+          height: "200%",
           backgroundImage: "url(/dollar-bill.svg)",
           backgroundSize: "220px 95px",
           backgroundRepeat: "repeat",

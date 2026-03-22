@@ -9,6 +9,10 @@ applications:
             # WHY: Prisma 7 generates the client from the schema at build time.
             # Without this, the build fails with missing module errors.
             - npx prisma generate
+            # WHY: Syncs production DB schema with schema.prisma on every deploy.
+            # Using db push (not migrate) because the project uses push workflow
+            # and the migration history is out of sync. Safe for additive changes.
+            - npx prisma db push
         build:
           commands:
             - npm run build

@@ -527,7 +527,7 @@ export default function Home() {
           loop
           muted
           playsInline
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover object-left"
         >
           <source src="/pump-counter.mp4" type="video/mp4" />
         </video>
@@ -1240,7 +1240,7 @@ export default function Home() {
                     onClick={handleGetProtected}
                     className="px-8 py-3 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20 bg-emerald-600 hover:bg-emerald-700"
                   >
-                    Join the Waitlist
+                    Join the Club
                   </button>
                 </div>
               </div>
@@ -1359,7 +1359,7 @@ export default function Home() {
                   onClick={handleGetProtected}
                   className="px-6 py-3 text-white text-sm font-semibold rounded-xl transition bg-emerald-600 hover:bg-emerald-700"
                 >
-                  Join the Waitlist &mdash; Get Early Access
+                  Join the Club
                 </button>
               </div>
             </div>
@@ -1485,7 +1485,7 @@ export default function Home() {
               <>
                 <div className="text-center mb-6">
                   <PumpLockLogo className="w-10 h-10 mx-auto mb-3" />
-                  <h3 className="text-xl font-bold text-gray-900">Join the Waitlist</h3>
+                  <h3 className="text-xl font-bold text-gray-900">Join the Club</h3>
                   <p className="text-sm text-gray-500 mt-1">
                     Be the first to know when PumpLock launches in your area.
                   </p>
@@ -1524,6 +1524,18 @@ export default function Home() {
                       onKeyDown={(e) => { if (e.key === "Enter") handleWaitlistSubmit(); }}
                     />
                   </div>
+                  <div>
+                    <label htmlFor="wl-zip" className="block text-sm font-medium text-gray-700 mb-1">
+                      Zip Code
+                    </label>
+                    <input
+                      id="wl-zip"
+                      type="text"
+                      value={locationQuery.replace(/\D/g, "")}
+                      readOnly
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-500 bg-gray-50"
+                    />
+                  </div>
                 </div>
 
                 {waitlistError && (
@@ -1539,7 +1551,7 @@ export default function Home() {
                       : "bg-emerald-600 hover:bg-emerald-700"
                   }`}
                 >
-                  {waitlistSubmitting ? "Joining..." : "Join the Waitlist"}
+                  {waitlistSubmitting ? "Joining..." : "Join the Club"}
                 </button>
 
                 <p className="text-xs text-gray-400 text-center mt-3">

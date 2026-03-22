@@ -158,6 +158,10 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
 
       // ── Ticker key (upper-left, Google Finance style) ──
       // WHY: Adds realism — looks like a real commodity chart at a glance.
+      // WHY: On narrow screens (<640px) the two info boxes overlap, so
+      // hide them entirely — the chart line alone is enough on mobile.
+      const showInfoBoxes = w >= 640;
+
       const keyPad = 12;
       const keyX = 100;
       const keyBoxX = keyX - keyPad;
@@ -167,7 +171,42 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       const keyBoxW = 250;
       const keyBoxH = 108;
 
-      // Box background + border
+      // WHY: Display a price that tracks the actual animated line so the
+      // ticker feels alive, not static.
+      const currentPrice = prices[recalcStart + pointsOnScreen - 1] ?? 0.5;
+      const displayPrice = 2.00 + currentPrice * 2.50; // maps 0-1 to $2.00-$4.50
+
+      // "Your max price" dashed line — positioned at ~$3.50 area
+      // WHY: Shows the protection ceiling visually. Placed at 40% from top
+      // so the rising price line crosses above it, illustrating the problem.
+      const strikeY = chartTop + chartH * 0.55;
+      ctx.setLineDash([8, 5]);
+      ctx.strokeStyle = "rgba(239, 68, 68, 0.40)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, strikeY);
+      ctx.lineTo(w, strikeY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.font = "14px sans-serif";
+      ctx.fillStyle = "rgba(239, 68, 68, 0.35)";
+      ctx.fillText("YOUR LOCKED PRICE", w - 195, strikeY - 5);
+
+      const lockedPriceFrac = 0.45; // corresponds to strikeY at 0.55
+      const lockedDisplayPrice = 2.00 + lockedPriceFrac * 2.50;
+      const overage = displayPrice - lockedDisplayPrice;
+
+      // WHY: Only accumulate when price is above the locked line.
+      if (overage > 0) {
+        rebateTotal += overage * 0.02;
+      }
+
+      // WHY: On mobile (<640px) the ticker and rebate boxes overlap because
+      // both are 250px wide and the screen isn't wide enough. Hide them
+      // on small screens — the animated chart line is enough.
+      if (showInfoBoxes) {
+      // ── Ticker box (upper-left) ──
       ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
       ctx.beginPath();
       ctx.roundRect(keyBoxX, keyBoxY, keyBoxW, keyBoxH, 6);
@@ -189,60 +228,24 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       ctx.fillText("RBOB Gasoline Futures", keyX, keyY);
       keyY += 26;
 
-      // WHY: Display a price that tracks the actual animated line so the
-      // ticker feels alive, not static.
-      const currentPrice = prices[recalcStart + pointsOnScreen - 1] ?? 0.5;
-      const displayPrice = 2.00 + currentPrice * 2.50; // maps 0-1 to $2.00-$4.50
       ctx.font = "bold 28px monospace";
       ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
       ctx.fillText(`$${displayPrice.toFixed(2)}`, keyX, keyY);
       keyY += 22;
 
-      // Change indicator — always trending up to reinforce the message
       const changeAmt = (displayPrice - 2.85).toFixed(2);
       const changePct = (((displayPrice - 2.85) / 2.85) * 100).toFixed(1);
       ctx.font = "14px sans-serif";
       ctx.fillStyle = "rgba(239, 68, 68, 0.30)";
       ctx.fillText(`▲ +${changePct}% (+${changeAmt})  Today`, keyX, keyY);
-      keyY += 14;
 
-      // "Your max price" dashed line — positioned at ~$3.50 area
-      // WHY: Shows the protection ceiling visually. Placed at 40% from top
-      // so the rising price line crosses above it, illustrating the problem.
-      const strikeY = chartTop + chartH * 0.55;
-      ctx.setLineDash([8, 5]);
-      ctx.strokeStyle = "rgba(239, 68, 68, 0.40)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, strikeY);
-      ctx.lineTo(w, strikeY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      ctx.font = "14px sans-serif";
-      ctx.fillStyle = "rgba(239, 68, 68, 0.35)";
-      ctx.fillText("YOUR LOCKED PRICE", w - 195, strikeY - 5);
-
-      // ── Rebate box (upper-right, shows savings growing) ──
-      // WHY: Visually demonstrates the PumpLock value prop — as the price
-      // rises above the locked line, your rebate accumulates in real time.
-      const lockedPriceFrac = 0.45; // corresponds to strikeY at 0.55
-      const lockedDisplayPrice = 2.00 + lockedPriceFrac * 2.50;
-      const overage = displayPrice - lockedDisplayPrice;
-
-      // WHY: Only accumulate when price is above the locked line.
-      // Scale by 0.02 per frame so the number grows at a readable pace.
-      if (overage > 0) {
-        rebateTotal += overage * 0.02;
-      }
-
+      // ── Rebate box (upper-right) ──
       const rebPad = 12;
       const rebBoxW = 250;
       const rebBoxH = 108;
       const rebBoxX = w - rebBoxW - 50;
       const rebBoxY = 30;
 
-      // Box background + border
       ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
       ctx.beginPath();
       ctx.roundRect(rebBoxX, rebBoxY, rebBoxW, rebBoxH, 6);
@@ -259,19 +262,17 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       const logoSize = 36;
       const logoX = rebBoxX + rebBoxW - rebPad - logoSize;
       const logoY = rebBoxY + rebPad;
-      const ls = logoSize / 64; // scale factor from 64x64 viewBox
+      const ls = logoSize / 64;
       ctx.save();
       ctx.translate(logoX, logoY);
       ctx.scale(ls, ls);
 
-      // Outer circle
       ctx.strokeStyle = "rgba(5, 150, 105, 0.30)";
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(32, 30, 26, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Shield
       ctx.fillStyle = "rgba(5, 150, 105, 0.25)";
       ctx.beginPath();
       ctx.moveTo(32, 10);
@@ -283,7 +284,6 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       ctx.closePath();
       ctx.fill();
 
-      // Nozzle handle
       ctx.strokeStyle = "rgba(5, 150, 105, 0.30)";
       ctx.lineWidth = 2;
       ctx.lineCap = "round";
@@ -295,14 +295,12 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       ctx.lineTo(47, 30);
       ctx.stroke();
 
-      // Hose
       ctx.beginPath();
       ctx.moveTo(47, 30);
       ctx.quadraticCurveTo(50, 33, 50, 36);
       ctx.lineTo(50, 42);
       ctx.stroke();
 
-      // Nozzle tip
       ctx.fillStyle = "rgba(5, 150, 105, 0.25)";
       ctx.beginPath();
       ctx.moveTo(48, 42);
@@ -326,8 +324,6 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       ctx.fillText("Membership Rebate", rebX, rebY);
       rebY += 26;
 
-      // WHY: The rebate dollar amount grows live as the chart price
-      // exceeds the locked price — makes the value tangible.
       ctx.font = "bold 28px monospace";
       ctx.fillStyle = "rgba(5, 150, 105, 0.25)";
       ctx.fillText(`$${rebateTotal.toFixed(2)}`, rebX, rebY);
@@ -342,6 +338,7 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
         ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
         ctx.fillText("Price below locked — no rebate yet", rebX, rebY);
       }
+      } // end showInfoBoxes
       offset += SPEED;
       animRef.current = requestAnimationFrame(draw);
     }

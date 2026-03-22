@@ -5,17 +5,26 @@
 
 export function DollarWallBg() {
   return (
-    <div
-      className="absolute inset-0 pointer-events-none"
-      aria-hidden="true"
-      style={{
-        backgroundImage: "url(/dollar-bill.svg)",
-        // WHY: 220px tile width keeps bills recognizable on mobile while
-        // fitting 2-3 across on small screens. 95px matches the 200:85
-        // aspect ratio of the SVG.
-        backgroundSize: "220px 95px",
-        backgroundRepeat: "repeat",
-      }}
-    />
+    // WHY: Outer div clips the rotated inner div so the tilted pattern
+    // doesn't spill outside the section boundaries.
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+      <div
+        style={{
+          // WHY: 15° tilt makes the dollar pattern feel scattered/organic
+          // instead of a rigid grid. The oversized dimensions (-20% inset,
+          // 140% size) ensure the rotated tile still covers the full section
+          // without leaving empty corners.
+          position: "absolute",
+          top: "-20%",
+          left: "-20%",
+          width: "140%",
+          height: "140%",
+          backgroundImage: "url(/dollar-bill.svg)",
+          backgroundSize: "220px 95px",
+          backgroundRepeat: "repeat",
+          transform: "rotate(-15deg)",
+        }}
+      />
+    </div>
   );
 }

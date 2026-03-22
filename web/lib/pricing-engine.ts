@@ -34,7 +34,17 @@ function normPdf(x: number): number {
 
 // --- Constants ---
 
-export const POLICY_TERM_MONTHS = 6;
+// WHY: Using fixed day counts instead of months avoids ambiguity
+// from months having 28-31 days. 30/90/180 are clean multiples.
+export const POLICY_TERM_DAYS = 180; // Default term
+
+// WHY: Shorter terms have lower absolute cost but higher per-day cost.
+// 30-day lets users "try it out"; 180-day is best per-day value.
+export const TERM_OPTIONS = [
+  { days: 30, label: "30 Days", desc: "Try it out" },
+  { days: 90, label: "90 Days", desc: "Seasonal coverage" },
+  { days: 180, label: "180 Days", desc: "Best value" },
+] as const;
 
 export const VOLATILITY_PRESETS = {
   low: { value: 0.25, label: "Low", desc: "Calm market" },
@@ -72,9 +82,14 @@ export interface PricingInputs {
   volatility: number;
   riskFreeRate: number;
   currentMonth: number;
+  termDays?: number; // Defaults to POLICY_TERM_DAYS (180)
   operationalLoad?: number;
   profitMargin?: number;
   adverseSelectionLoad?: number;
+  // WHY: When CME is closed, we silently inflate the spot price to cover
+  // gap risk. The buffer is calculated by market-hours.ts and passed in.
+  // Null/undefined = no buffer (market is open or caller handles it).
+  afterHoursBuffer?: number; // Multiplier (e.g., 0.035 = 3.5% inflation)
 }
 
 export interface PricingResult {
@@ -89,7 +104,7 @@ export interface PricingResult {
   monthlyEquivalent: number;
   totalGallonsCovered: number;
   gallonsPerMonth: number;
-  policyMonths: number;
+  policyDays: number;
 
   delta: number;
   gamma: number;
@@ -174,12 +189,22 @@ export function priceProtectionPlan(inputs: PricingInputs): PricingResult {
   const opLoad = inputs.operationalLoad ?? DEFAULT_OPERATIONAL_LOAD;
   const profitMargin = inputs.profitMargin ?? DEFAULT_PROFIT_MARGIN;
   const advSelLoad = inputs.adverseSelectionLoad ?? DEFAULT_ADVERSE_SELECTION_LOAD;
+  const termDays = inputs.termDays ?? POLICY_TERM_DAYS;
 
-  const t = POLICY_TERM_MONTHS / 12;
+  // WHY: When the CME is closed, inflate the spot price to account for
+  // potential gap risk on market open. The buffer is time-scaled
+  // (sqrt of hours since close) so weekend signups pay more than
+  // daily-break signups. The member never sees this — it's baked into
+  // the premium silently.
+  const afterHoursBuf = inputs.afterHoursBuffer ?? 0;
+  const effectiveSpot = inputs.spotPrice * (1 + afterHoursBuf);
+
+  // WHY: Black-Scholes expects time in years.
+  const t = termDays / 365;
   const seasonalQ = SEASONAL_ADJUSTMENTS[inputs.currentMonth] ?? 0;
 
   const { price: callPrice, d1, d2 } = blackScholesCall(
-    inputs.spotPrice,
+    effectiveSpot,
     inputs.strikePrice,
     inputs.riskFreeRate,
     seasonalQ,
@@ -192,7 +217,7 @@ export function priceProtectionPlan(inputs: PricingInputs): PricingResult {
 
   // Seasonal contribution for transparency
   const noSeasonalPrice = blackScholesCall(
-    inputs.spotPrice,
+    effectiveSpot,
     inputs.strikePrice,
     inputs.riskFreeRate,
     0,
@@ -202,11 +227,12 @@ export function priceProtectionPlan(inputs: PricingInputs): PricingResult {
   const seasonalContribution = fairValue - Math.max(noSeasonalPrice, 0);
 
   const totalPerGallon = fairValue + adverseAdj + opLoad + profitMargin;
-  const totalGallons = inputs.gallonsPerMonth * POLICY_TERM_MONTHS;
+  // WHY: Convert gallonsPerMonth to total gallons using exact day count.
+  const totalGallons = inputs.gallonsPerMonth * (termDays / 30);
   const upfrontPrice = totalPerGallon * totalGallons;
 
   const greeks = computeGreeks(
-    inputs.spotPrice,
+    effectiveSpot,
     inputs.strikePrice,
     inputs.riskFreeRate,
     seasonalQ,
@@ -227,10 +253,11 @@ export function priceProtectionPlan(inputs: PricingInputs): PricingResult {
     profitMarginPerGallon: round4(profitMargin),
     totalPremiumPerGallon: round4(totalPerGallon),
     upfrontPrice: round2(upfrontPrice),
-    monthlyEquivalent: round2(upfrontPrice / POLICY_TERM_MONTHS),
+    // WHY: Monthly equivalent uses 30-day months for consistency.
+    monthlyEquivalent: round2(upfrontPrice / (termDays / 30)),
     totalGallonsCovered: Math.round(totalGallons * 10) / 10,
     gallonsPerMonth: inputs.gallonsPerMonth,
-    policyMonths: POLICY_TERM_MONTHS,
+    policyDays: termDays,
     delta: round4(greeks.delta),
     gamma: round4(greeks.gamma),
     vega: round4(greeks.vega),
@@ -265,7 +292,9 @@ export function generateTierComparison(
   gallonsPerMonth: number,
   volatility: number,
   riskFreeRate: number,
-  currentMonth: number
+  currentMonth: number,
+  termDays?: number,
+  afterHoursBuffer?: number
 ): TierRow[] {
   const offsets = [0.10, 0.25, 0.50, 0.75, 1.0, 1.5, 2.0];
   return offsets.map((offset) => {
@@ -277,6 +306,8 @@ export function generateTierComparison(
       volatility,
       riskFreeRate,
       currentMonth,
+      termDays,
+      afterHoursBuffer,
     });
     return {
       strikePrice: strike,

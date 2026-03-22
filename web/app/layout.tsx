@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import Providers from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "PumpLock — Never Overpay for Gas Again",
-  description: "Lock in your gas price today. 6-month protection plan, one upfront payment. If prices rise, you pay nothing extra.",
+  description: "Lock in your gas price today. 1, 3, or 6-month protection plans, one upfront payment. If prices rise, you pay nothing extra.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -13,8 +17,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-950 text-gray-100 min-h-screen antialiased">
-        {children}
+      <body className="bg-white text-gray-900 min-h-screen antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

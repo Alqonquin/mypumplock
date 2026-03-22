@@ -54,10 +54,10 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (err: unknown) {
-    const e = err as { message?: string };
-    console.error("Waitlist signup failed:", e.message);
+    const e = err as { message?: string; code?: string };
+    console.error("Waitlist signup failed:", e.message, e.code);
     return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
+      { error: "Something went wrong. Please try again.", debug: e.message },
       { status: 500 }
     );
   }

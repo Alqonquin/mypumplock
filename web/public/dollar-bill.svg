@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="85" viewBox="0 0 200 85">
+  <!-- Bill body -->
+  <rect x="2" y="2" width="196" height="81" rx="4" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+
+  <!-- Inner ornamental border -->
+  <rect x="10" y="8" width="180" height="69" rx="3" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="0.8" stroke-dasharray="3,2"/>
+
+  <!-- Second inner border -->
+  <rect x="16" y="13" width="168" height="59" rx="2" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+
+  <!-- Center portrait oval -->
+  <ellipse cx="100" cy="42" rx="22" ry="26" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+  <ellipse cx="100" cy="42" rx="18" ry="22" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+
+  <!-- Stylized head silhouette in portrait -->
+  <ellipse cx="100" cy="35" rx="8" ry="10" fill="rgba(255,255,255,0.1)"/>
+  <ellipse cx="100" cy="26" rx="6" ry="7" fill="rgba(255,255,255,0.1)"/>
+  <rect x="93" y="44" width="14" height="12" rx="3" fill="rgba(255,255,255,0.08)"/>
+
+  <!-- Corner denominations -->
+  <text x="24" y="28" font-family="serif" font-weight="bold" font-size="16" fill="rgba(255,255,255,0.22)" text-anchor="middle">1</text>
+  <text x="176" y="28" font-family="serif" font-weight="bold" font-size="16" fill="rgba(255,255,255,0.22)" text-anchor="middle">1</text>
+  <text x="24" y="68" font-family="serif" font-weight="bold" font-size="16" fill="rgba(255,255,255,0.22)" text-anchor="middle">1</text>
+  <text x="176" y="68" font-family="serif" font-weight="bold" font-size="16" fill="rgba(255,255,255,0.22)" text-anchor="middle">1</text>
+
+  <!-- Corner circles around denominations -->
+  <circle cx="24" cy="23" r="11" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+  <circle cx="176" cy="23" r="11" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+  <circle cx="24" cy="63" r="11" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+  <circle cx="176" cy="63" r="11" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+
+  <!-- "ONE DOLLAR" text -->
+  <text x="100" y="76" font-family="serif" font-size="6" fill="rgba(255,255,255,0.18)" text-anchor="middle" letter-spacing="3">ONE DOLLAR</text>
+
+  <!-- Top banner text -->
+  <text x="100" y="22" font-family="serif" font-size="5.5" fill="rgba(255,255,255,0.15)" text-anchor="middle" letter-spacing="2">THE UNITED STATES OF AMERICA</text>
+
+  <!-- Left scroll ornament -->
+  <path d="M30,38 Q38,35 44,38 Q38,41 30,38 Z" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.12)" stroke-width="0.4"/>
+  <path d="M30,48 Q38,45 44,48 Q38,51 30,48 Z" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.12)" stroke-width="0.4"/>
+
+  <!-- Right scroll ornament -->
+  <path d="M156,38 Q164,35 170,38 Q164,41 156,38 Z" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.12)" stroke-width="0.4"/>
+  <path d="M156,48 Q164,45 170,48 Q164,51 156,48 Z" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.12)" stroke-width="0.4"/>
+
+  <!-- Fine horizontal lines left -->
+  <line x1="30" y1="42" x2="72" y2="42" stroke="rgba(255,255,255,0.08)" stroke-width="0.3"/>
+  <line x1="30" y1="44" x2="72" y2="44" stroke="rgba(255,255,255,0.08)" stroke-width="0.3"/>
+
+  <!-- Fine horizontal lines right -->
+  <line x1="128" y1="42" x2="170" y2="42" stroke="rgba(255,255,255,0.08)" stroke-width="0.3"/>
+  <line x1="128" y1="44" x2="170" y2="44" stroke="rgba(255,255,255,0.08)" stroke-width="0.3"/>
+
+  <!-- Treasury seal (left circle) -->
+  <circle cx="52" cy="52" r="9" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.8"/>
+  <circle cx="52" cy="52" r="7" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.4"/>
+  <text x="52" y="54" font-family="sans-serif" font-size="5" fill="rgba(255,255,255,0.15)" text-anchor="middle">$</text>
+
+  <!-- Federal reserve seal (right circle) -->
+  <circle cx="148" cy="52" r="9" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.8"/>
+  <circle cx="148" cy="52" r="7" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.4"/>
+  <text x="148" y="54" font-family="sans-serif" font-size="5" fill="rgba(255,255,255,0.15)" text-anchor="middle">$</text>
+</svg>

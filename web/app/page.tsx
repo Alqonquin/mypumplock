@@ -14,6 +14,7 @@ import { lookupPrice, type LocalPriceResult } from "@/lib/gas-prices";
 import { searchAddresses, isNonUsAddress, type AddressResult } from "@/lib/address-search";
 import { estimateMonthlyGallons } from "@/lib/vehicles";
 import { DollarWallBg } from "@/components/dollar-wall-bg";
+// WHY: DollarWallBg is a pure CSS tiled SVG — no canvas, no client JS needed.
 
 // WHY: Normal volatility (40%) is the default for consumer-facing pricing.
 // We don't expose volatility selection to end users — it's an internal lever.

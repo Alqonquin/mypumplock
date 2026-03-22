@@ -9,9 +9,14 @@ import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/waitlist", label: "Waitlist" },
   { href: "/admin/members", label: "Members" },
   { href: "/admin/pricing", label: "Pricing" },
+  { href: "/admin/volatility", label: "Volatility" },
   { href: "/admin/exposure", label: "Exposure" },
+  { href: "/admin/hedge-book", label: "Hedge Book" },
+  { href: "/admin/hedge-queue", label: "Hedge Queue" },
+  { href: "/admin/settings", label: "Settings" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

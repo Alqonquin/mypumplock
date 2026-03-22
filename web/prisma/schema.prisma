@@ -18,6 +18,14 @@ enum PlanStatus {
   CANCELLED
 }
 
+// WHY: Tracks whether the company's hedge for this plan has been
+// executed on the CME. After-hours signups start as PENDING until
+// the market opens and the batch hedge executes.
+enum HedgeStatus {
+  HEDGED
+  PENDING_HEDGE
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -53,6 +61,10 @@ model Plan {
   vehicleMpg      Float?
   monthlyMiles    Int?
   fuelType        String?
+
+  // WHY: After-hours signups can't be instantly hedged on the CME.
+  // PENDING_HEDGE plans queue until market opens for batch execution.
+  hedgeStatus     HedgeStatus @default(HEDGED)
 
   // Location
   zip             String
@@ -119,6 +131,11 @@ model PricingConfig {
   // Seasonal adjustments stored as JSON — keys are month numbers (1-12)
   seasonalAdjustments  Json?
 
+  // WHY: Allows scheduling a pricing change in advance. When set,
+  // the config stays inactive until this datetime, then activates
+  // automatically on the next request after effectiveAt.
+  effectiveAt          DateTime?
+
   createdBy            String?
   createdAt            DateTime @default(now())
 
@@ -128,4 +145,275 @@ model PricingConfig {
   // Enforced in application logic, not DB constraint,
   // because Postgres partial unique indexes need raw SQL.
   @@index([isActive])
+}
+
+// --- Hedge Book Simulator Models ---
+// WHY: These models support a financial simulation that tests our hedge
+// strategy against historical futures data. The simulation generates
+// synthetic member signups and runs two parallel hedging approaches
+// (matching calls vs delta-hedging) to compare P&L outcomes.
+
+model FuturesPrice {
+  id         String   @id @default(cuid())
+  date       DateTime @db.Date
+  instrument String   // "RBOB" or "HO"
+  open       Float
+  high       Float
+  low        Float
+  settle     Float    // Settlement/close price
+
+  // WHY: Volume supports realism in the simulation display
+  // but isn't used for hedge calculations.
+  volume     Int      @default(0)
+
+  @@unique([date, instrument])
+  @@index([instrument])
+}
+
+model SimMember {
+  id               String   @id @default(cuid())
+  signupDate       DateTime @db.Date
+  // WHY: Day number in simulation (1-60) for easy ordering/display
+  dayNumber        Int
+
+  zip              String
+  stateCode        String
+  cityState        String?
+  fuelType         String   // "Regular", "Premium", "Diesel"
+
+  spotPrice        Float    // Retail price at signup
+  futuresPrice     Float    // RBOB or HO futures price at signup
+  strikePrice      Float    // Member's max protected price
+  termDays         Int
+  gallonsPerMonth  Float
+  premiumPerGallon Float
+  upfrontPrice     Float
+  status           String   @default("ACTIVE")
+  endDate          DateTime @db.Date
+
+  @@index([signupDate])
+  @@index([status])
+}
+
+model HedgePosition {
+  id             String    @id @default(cuid())
+  model          String    // "DELTA_HEDGE" or "MATCHING_CALLS"
+  openDate       DateTime  @db.Date
+  closeDate      DateTime? @db.Date
+  instrument     String    // "RBOB_CALL" or "HO_CALL"
+  direction      String    @default("LONG")
+  strikePrice    Float     // Option strike (futures price level)
+  expiryDate     DateTime  @db.Date
+  // WHY: Fractional contracts allowed for micro-contract sizing accuracy
+  contracts      Float
+  // WHY: 4200 = micro contract (1/10 standard 42000 gal NYMEX)
+  contractSize   Int
+  premiumPerUnit Float     // $/gallon paid for the option
+  totalPremium   Float     // Total premium paid = premiumPerUnit × contracts × contractSize
+  currentValue   Float     @default(0)
+  isOpen         Boolean   @default(true)
+
+  @@index([model])
+  @@index([openDate])
+  @@index([isOpen])
+}
+
+model HedgeBookSnapshot {
+  id                    String   @id @default(cuid())
+  date                  DateTime @db.Date
+  model                 String   // "DELTA_HEDGE" or "MATCHING_CALLS"
+  dayNumber             Int      // Day in simulation (1-60)
+
+  // Member-side metrics
+  totalMembers          Int
+  newMembersToday       Int      @default(0)
+  totalGallonsCovered   Float
+  totalPremiumCollected Float
+
+  // Hedge-side metrics
+  totalHedgeCost        Float
+  hedgePositionCount    Int
+  totalContractsOpen    Float
+  // WHY: Mark-to-market value of all open positions, used for net P&L
+  hedgeMtmValue         Float    @default(0)
+
+  // P&L
+  netPnl                Float
+  realizedPnl           Float    @default(0)
+  // WHY: Cumulative rebates paid to members whose gas exceeded their strike.
+  // Each day, active members "consume" gallonsPerMonth/30 gallons at the
+  // current retail price. If retail > strike, we pay the difference.
+  rebatesPaid           Float    @default(0)
+  openLiability         Float
+  // WHY: Forward-looking exposure if prices stay at today's level.
+  // Sum of (retail - strike) × remainingGallons for active members over max.
+  projectedLiability    Float    @default(0)
+
+  // Futures reference prices for this snapshot
+  rbobPrice             Float    @default(0)
+  hoPrice               Float    @default(0)
+
+  // Portfolio-level Greeks (sum across all open positions)
+  portfolioDelta        Float    @default(0)
+  portfolioGamma        Float    @default(0)
+  portfolioVega         Float    @default(0)
+  portfolioTheta        Float    @default(0)
+
+  @@unique([date, model])
+  @@index([model])
+}
+
+model SimConfig {
+  id               String    @id @default(cuid())
+  // WHY: This multiplier controls the margin on member pricing.
+  // 1.15 = 15% above fair value. Key lever for profitability testing.
+  marginMultiplier Float     @default(1.15)
+  // WHY: Micro contracts (4200 gal) give more granular hedging than
+  // standard (42000 gal) but cost more per-gallon in transaction costs.
+  microContracts   Boolean   @default(true)
+  volatility       Float     @default(0.40)
+  isActive         Boolean   @default(true)
+  lastRunAt        DateTime?
+  updatedAt        DateTime  @updatedAt
+}
+
+// --- Admin Settings & Hedge Queue ---
+
+// WHY: Single-row table for global admin settings. All tunable knobs
+// live here instead of scattered across pricing configs, env vars, etc.
+// The admin Settings page reads/writes this one record.
+model AdminSettings {
+  id                     String  @id @default(cuid())
+
+  // --- Pricing ---
+  // WHY: When CME is closed, we inflate the spot price by
+  // baseBufferRate × sqrt(hoursSinceClose / 24) to cover gap risk.
+  // 0.03 = 3% base rate, scaled by square root of time.
+  afterHoursBufferRate   Float   @default(0.03)
+
+  // --- Membership Controls ---
+  // WHY: Admin kill switch — pauses all new plan purchases instantly.
+  // Use during black swan events when after-hours buffer is insufficient.
+  signupsPaused          Boolean @default(false)
+
+  // WHY: Prevents individual arb — no one can buy unlimited protection
+  // at stale prices. 2 active plans covers a two-car household.
+  maxActivePlansPerUser  Int     @default(2)
+
+  // WHY: Rate limit — prevents rapid-fire purchases from bots or
+  // sophisticated actors trying to front-run a known price move.
+  maxPurchasesPerDay     Int     @default(1)
+
+  // WHY: System-wide cap on new plans during any closed-market window.
+  // Bounds total unhedged exposure regardless of how many users try.
+  // 20 plans × ~60 gal/mo × 6 mo = ~7,200 gal max unhedged ≈ 1.7 contracts.
+  afterHoursVolumeCap    Int     @default(20)
+
+  // --- Hedging ---
+  // WHY: Gallon threshold per strike bucket before triggering a
+  // hedge purchase. Default 4200 = 1 micro contract. Admin can lower
+  // to trigger earlier (e.g., 3500 to get ahead of fast-filling buckets).
+  hedgeTriggerGallons    Int     @default(4200)
+
+  // WHY: Alert the admin when a bucket reaches this % of the trigger
+  // threshold, so they can plan capital for the upcoming purchase.
+  nearThresholdAlertPct  Float   @default(0.80)
+
+  updatedAt              DateTime @updatedAt
+}
+
+// WHY: Pre-launch waitlist captures interest before the product goes live.
+// Users run the calculator, see their quote, and join the waitlist with
+// name + email. The quote snapshot lets us segment signups by willingness
+// to pay and geographic distribution.
+model WaitlistEntry {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  zip         String?
+  cityState   String?
+  stateCode   String?
+
+  // WHY: Snapshot of the quote they saw when signing up.
+  // Useful for segmenting demand by price point and geography.
+  spotPrice       Float?   // Gas price they saw
+  strikePrice     Float?   // Max price they chose
+  upfrontPrice    Float?   // Quote they were shown
+  monthlyGallons  Float?   // Their estimated monthly usage
+  termDays        Int?     // Term they selected
+  fuelType        String?
+  vehicleMake     String?
+  vehicleModel    String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+}
+
+// WHY: State-level retail spread = the fixed-cost gap between wholesale
+// RBOB/HO futures and the retail pump price (taxes, transport, retailer margin).
+// Used to convert a member's retail max price to the correct CME hedge strike.
+// Updated quarterly from API/EIA state motor fuel tax reports.
+model StateSpread {
+  id           String   @id @default(cuid())
+  stateCode    String   @unique // e.g., "CA", "TX"
+  stateName    String   // e.g., "California"
+
+  // WHY: Different fuel types have different rack spreads and tax rates.
+  // Regular/Premium both track RBOB but Premium has higher refining margin.
+  // Diesel tracks HO (Heating Oil) futures with a different spread.
+  regularSpread  Float  // Total $/gal spread for Regular (RBOB + taxes + margin)
+  premiumSpread  Float  // Total $/gal spread for Premium
+  dieselSpread   Float  // Total $/gal spread for Diesel (from HO)
+
+  // WHY: Audit trail — when was this last verified against EIA/API data.
+  lastUpdated  DateTime @default(now())
+  source       String   @default("API Motor Fuel Tax Report") // Data source reference
+
+  @@index([stateCode])
+}
+
+// WHY: Aggregates member gallons by CME strike level for hedge execution.
+// Each bucket represents a $0.05 strike increment. When accumulated gallons
+// hit the trigger threshold, the admin gets a notification to execute.
+model StrikeBucket {
+  id                  String   @id @default(cuid())
+
+  // WHY: The CME option strike price this bucket targets.
+  // Rounded down to nearest $0.05 from member hedge strikes.
+  strikePrice         Float
+
+  // WHY: Which futures contract to hedge with.
+  instrument          String   @default("RBOB") // "RBOB" or "HO"
+
+  // WHY: Options expiry month — aligns with CME monthly expirations.
+  // Format: "2026-05" for May 2026.
+  expiryMonth         String
+
+  // WHY: Running total of member gallons assigned to this bucket.
+  // Increases as members sign up, decreases as plans expire.
+  accumulatedGallons  Float    @default(0)
+
+  // WHY: How many members contribute to this bucket.
+  // Useful for dashboard display and risk assessment.
+  memberCount         Int      @default(0)
+
+  // WHY: Per-bucket override of the global trigger threshold.
+  // Null = use global AdminSettings.hedgeTriggerGallons.
+  // Admin can set a tighter trigger on fast-filling buckets.
+  triggerOverride     Int?
+
+  // WHY: Tracks the execution state of this bucket.
+  // FILLING = accumulating gallons
+  // READY = hit trigger, waiting for admin to execute
+  // EXECUTED = hedge purchased on CME
+  status              String   @default("FILLING") // FILLING | READY | EXECUTED
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([strikePrice, instrument, expiryMonth])
+  @@index([status])
+  @@index([instrument, expiryMonth])
 }

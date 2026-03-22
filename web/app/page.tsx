@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useSession, signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import {
   priceProtectionPlan,
@@ -32,33 +31,13 @@ import { PriceChartBg } from "@/components/price-chart-bg";
 
 export default function Home() {
   const { data: session } = useSession();
-  const router = useRouter();
   const topRef = useRef<HTMLDivElement>(null);
   const calculatorRef = useRef<HTMLDivElement>(null);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
 
-  // WHY: After signup redirect, create the plan that was stashed in sessionStorage
-  useEffect(() => {
-    if (!session) return;
-    const pending = sessionStorage.getItem("pendingPlan");
-    if (!pending) return;
-    sessionStorage.removeItem("pendingPlan");
-
-    // WHY: Migrate old sessionStorage data that used termMonths to termDays.
-    const parsed = JSON.parse(pending);
-    if (parsed.termMonths && !parsed.termDays) {
-      parsed.termDays = parsed.termMonths * 30;
-      delete parsed.termMonths;
-    }
-
-    fetch("/api/member/plans", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parsed),
-    }).then((res) => {
-      if (res.ok) router.push("/account");
-    });
-  }, [session, router]);
+  // WHY: Post-signup plan creation is disabled in waitlist mode.
+  // The original logic stashed plan data in sessionStorage and created
+  // it after auth. We'll re-enable this when we go live for real.
 
   // Calculator state
   const [calcStep, setCalcStep] = useState(1);
@@ -95,6 +74,14 @@ export default function Home() {
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [tiers1mo, setTiers1mo] = useState<TierRow[]>([]);
   const [tiers3mo, setTiers3mo] = useState<TierRow[]>([]);
+
+  // --- Waitlist state ---
+  const [showWaitlist, setShowWaitlist] = useState(false);
+  const [waitlistName, setWaitlistName] = useState("");
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [waitlistDone, setWaitlistDone] = useState(false);
+  const [waitlistError, setWaitlistError] = useState("");
 
   // WHY: Fetch admin-controlled pricing config so changes in the admin panel
   // are reflected in consumer quotes without code changes.
@@ -361,54 +348,55 @@ export default function Home() {
     },
   ];
 
-  // WHY: When user clicks "Get Protected", either create the plan (if logged in)
-  // or redirect to signup with a callback that creates it after auth.
-  async function handleGetProtected() {
+  // WHY: In waitlist mode, clicking "Get Protected" opens a waitlist modal
+  // instead of creating a plan. The calculator still works so users see
+  // the value proposition, but signup captures interest rather than payment.
+  function handleGetProtected() {
     if (!result || !localPrice) return;
+    setShowWaitlist(true);
+    setWaitlistError("");
+  }
 
-    const planData = {
-      spotPrice: localPrice.price,
-      strikePrice: result.strikePrice,
-      termDays: selectedTerm,
-      gallonsPerMonth: monthlyGallons,
-      premiumPerGallon: result.totalPremiumPerGallon,
-      upfrontPrice: result.upfrontPrice,
-      monthlyEquivalent: result.monthlyEquivalent,
-      vehicleYear: selectedYear ? parseInt(selectedYear) : null,
-      vehicleMake: selectedMake || null,
-      vehicleModel: selectedModel || null,
-      vehicleMpg: vehicleMpg,
-      monthlyMiles: monthlyMiles,
-      fuelType: vehicleFuel || null,
-      zip: locationQuery.replace(/\D/g, ""),
-      cityState: cityState || null,
-      stateCode: localPrice.areaName || null,
-    };
-
-    if (!session) {
-      // Store plan data in sessionStorage so we can create it after signup
-      sessionStorage.setItem("pendingPlan", JSON.stringify(planData));
-      router.push("/signup?callbackUrl=/");
+  async function handleWaitlistSubmit() {
+    if (!waitlistName.trim() || !waitlistEmail.trim()) {
+      setWaitlistError("Please enter your name and email.");
       return;
     }
 
+    setWaitlistSubmitting(true);
+    setWaitlistError("");
+
     try {
-      const res = await fetch("/api/member/plans", {
+      const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(planData),
+        body: JSON.stringify({
+          name: waitlistName,
+          email: waitlistEmail,
+          zip: locationQuery.replace(/\D/g, "") || null,
+          cityState: cityState || null,
+          stateCode: localPrice?.areaName || null,
+          spotPrice: localPrice?.price || null,
+          strikePrice: result?.strikePrice || null,
+          upfrontPrice: result?.upfrontPrice || null,
+          monthlyGallons: monthlyGallons || null,
+          termDays: selectedTerm || null,
+          fuelType: vehicleFuel || null,
+          vehicleMake: selectedMake || null,
+          vehicleModel: selectedModel || null,
+        }),
       });
 
       if (res.ok) {
-        router.push("/account");
+        setWaitlistDone(true);
       } else {
         const data = await res.json();
-        console.error("Plan creation response:", data);
-        alert(`Error: ${data.error || "Failed to create membership"}${data.code ? ` (${data.code})` : ""}`);
+        setWaitlistError(data.error || "Something went wrong. Please try again.");
       }
-    } catch (err) {
-      console.error("Plan creation fetch error:", err);
-      alert("Something went wrong. Please try again.");
+    } catch {
+      setWaitlistError("Something went wrong. Please try again.");
+    } finally {
+      setWaitlistSubmitting(false);
     }
   }
 
@@ -429,26 +417,19 @@ export default function Home() {
             <a href="#faq" className="px-4 py-2 rounded-full hover:bg-emerald-50 hover:text-emerald-700 transition">FAQ</a>
           </div>
           <div className="flex items-center gap-3">
-            {session ? (
+            {session?.user?.role === "ADMIN" && (
               <a
-                href="/account"
+                href="/admin"
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-emerald-700 rounded-full hover:bg-emerald-50 transition"
               >
-                My Account
+                Admin
               </a>
-            ) : (
-              <button
-                onClick={() => signIn()}
-                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-emerald-700 rounded-full hover:bg-emerald-50 transition"
-              >
-                Log In
-              </button>
             )}
             <button
               onClick={scrollToCalculator}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition"
             >
-              Get Protected
+              Get Your Quote
             </button>
           </div>
         </div>
@@ -474,7 +455,7 @@ export default function Home() {
                 onClick={scrollToCalculator}
                 className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20"
               >
-                Join Now
+                See Your Price
               </button>
               <a
                 href="#how-it-works"
@@ -727,13 +708,13 @@ export default function Home() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleLocationSubmit();
                 }}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-base text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
 
               <button
                 onClick={handleLocationSubmit}
                 disabled={locationQuery.length !== 5 || priceLoading}
-                className={`px-5 py-2 text-sm font-semibold rounded-lg transition ${
+                className={`w-full sm:w-auto px-6 py-3 text-base font-semibold rounded-xl transition ${
                   locationQuery.length === 5 && !priceLoading
                     ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
@@ -752,15 +733,15 @@ export default function Home() {
           {/* Step 2: Vehicle Picker */}
           {calcStep === 2 && localPrice && (
             <div className="space-y-6 bg-white border border-gray-200 rounded-2xl p-6 sm:p-8 shadow-sm sm:min-h-[340px]">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 mb-1">What do you drive?</h3>
                   <p className="text-gray-500 text-sm">
                     {cityState || localPrice.areaName} Average Fuel Prices
                   </p>
                 </div>
-                {/* WHY: Compact pump-style price boxes sit to the right of
-                    the heading so they don't expand the card height. */}
+                {/* WHY: Compact pump-style price boxes. Stack below heading
+                    on mobile, sit to the right on desktop. */}
                 <div className="flex gap-1.5 shrink-0">
                   {[
                     { grade: "87", label: "REG", price: baseRegularPrice },
@@ -1213,9 +1194,9 @@ export default function Home() {
                 </p>
                 <button
                   onClick={handleGetProtected}
-                  className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20"
+                  className="px-8 py-3 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20 bg-emerald-600 hover:bg-emerald-700"
                 >
-                  {session ? "Get Protected Now" : "Sign Up & Get Protected"}
+                  Join the Waitlist
                 </button>
               </div>
 
@@ -1331,9 +1312,9 @@ export default function Home() {
                 </button>
                 <button
                   onClick={handleGetProtected}
-                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition"
+                  className="px-6 py-3 text-white text-sm font-semibold rounded-xl transition bg-emerald-600 hover:bg-emerald-700"
                 >
-                  {session ? "Get Protected" : "Sign Up & Get Protected"} &mdash; ${result.upfrontPrice.toFixed(2)}
+                  Join the Waitlist &mdash; Get Early Access
                 </button>
               </div>
             </div>
@@ -1380,10 +1361,10 @@ export default function Home() {
       <section className="py-20 px-4 bg-emerald-600">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
-            Stop worrying about gas prices.
+            Be the first to lock in your gas price.
           </h2>
           <p className="text-emerald-100 text-lg mb-8">
-            Lock in your max price today. Protection starts immediately.
+            We&apos;re launching soon. Get your quote and join the waitlist for early access.
           </p>
           <button
             onClick={scrollToCalculator}
@@ -1411,6 +1392,112 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* ── Waitlist Modal ── */}
+      {showWaitlist && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 relative">
+            <button
+              onClick={() => { setShowWaitlist(false); setWaitlistDone(false); setWaitlistError(""); }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {waitlistDone ? (
+              <div className="text-center py-4">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-8 h-8 text-emerald-600">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">You&apos;re on the list!</h3>
+                <p className="text-gray-600 text-sm">
+                  We&apos;ll notify you as soon as PumpLock is ready.
+                  {result && (
+                    <span className="block mt-2 text-emerald-600 font-medium">
+                      Your quote: ${result.monthlyEquivalent.toFixed(2)}/mo for ${result.strikePrice.toFixed(2)} max protection
+                    </span>
+                  )}
+                </p>
+                <button
+                  onClick={() => { setShowWaitlist(false); setWaitlistDone(false); }}
+                  className="mt-6 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="text-center mb-6">
+                  <PumpLockLogo className="w-10 h-10 mx-auto mb-3" />
+                  <h3 className="text-xl font-bold text-gray-900">Join the Waitlist</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Be the first to know when PumpLock launches in your area.
+                  </p>
+                  {result && (
+                    <p className="text-xs text-emerald-600 font-medium mt-2 bg-emerald-50 rounded-lg py-1.5 px-3 inline-block">
+                      Your quote: ${result.monthlyEquivalent.toFixed(2)}/mo
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label htmlFor="wl-name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Name
+                    </label>
+                    <input
+                      id="wl-name"
+                      type="text"
+                      value={waitlistName}
+                      onChange={(e) => setWaitlistName(e.target.value)}
+                      placeholder="Your name"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="wl-email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
+                    <input
+                      id="wl-email"
+                      type="email"
+                      value={waitlistEmail}
+                      onChange={(e) => setWaitlistEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleWaitlistSubmit(); }}
+                    />
+                  </div>
+                </div>
+
+                {waitlistError && (
+                  <p className="text-sm text-red-600 mt-2">{waitlistError}</p>
+                )}
+
+                <button
+                  onClick={handleWaitlistSubmit}
+                  disabled={waitlistSubmitting}
+                  className={`w-full mt-4 py-3 text-white font-bold rounded-xl transition ${
+                    waitlistSubmitting
+                      ? "bg-emerald-400 cursor-not-allowed"
+                      : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
+                >
+                  {waitlistSubmitting ? "Joining..." : "Join the Waitlist"}
+                </button>
+
+                <p className="text-xs text-gray-400 text-center mt-3">
+                  No spam. We&apos;ll only email you when we launch.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

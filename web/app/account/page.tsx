@@ -48,6 +48,7 @@ export default function AccountPage() {
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -95,10 +96,14 @@ export default function AccountPage() {
               </Link>
             )}
             <button
-              onClick={() => signOut({ callbackUrl: "/" })}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              onClick={() => {
+                setIsSigningOut(true);
+                signOut({ callbackUrl: "/" });
+              }}
+              disabled={isSigningOut}
+              className={`text-sm ${isSigningOut ? "text-gray-400 cursor-not-allowed" : "text-gray-500 hover:text-gray-700"}`}
             >
-              Sign out
+              {isSigningOut ? "Signing out..." : "Sign out"}
             </button>
           </div>
         </div>

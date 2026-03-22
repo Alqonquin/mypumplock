@@ -86,6 +86,10 @@ export interface PricingInputs {
   operationalLoad?: number;
   profitMargin?: number;
   adverseSelectionLoad?: number;
+  // WHY: When CME is closed, we silently inflate the spot price to cover
+  // gap risk. The buffer is calculated by market-hours.ts and passed in.
+  // Null/undefined = no buffer (market is open or caller handles it).
+  afterHoursBuffer?: number; // Multiplier (e.g., 0.035 = 3.5% inflation)
 }
 
 export interface PricingResult {
@@ -187,12 +191,20 @@ export function priceProtectionPlan(inputs: PricingInputs): PricingResult {
   const advSelLoad = inputs.adverseSelectionLoad ?? DEFAULT_ADVERSE_SELECTION_LOAD;
   const termDays = inputs.termDays ?? POLICY_TERM_DAYS;
 
+  // WHY: When the CME is closed, inflate the spot price to account for
+  // potential gap risk on market open. The buffer is time-scaled
+  // (sqrt of hours since close) so weekend signups pay more than
+  // daily-break signups. The member never sees this — it's baked into
+  // the premium silently.
+  const afterHoursBuf = inputs.afterHoursBuffer ?? 0;
+  const effectiveSpot = inputs.spotPrice * (1 + afterHoursBuf);
+
   // WHY: Black-Scholes expects time in years.
   const t = termDays / 365;
   const seasonalQ = SEASONAL_ADJUSTMENTS[inputs.currentMonth] ?? 0;
 
   const { price: callPrice, d1, d2 } = blackScholesCall(
-    inputs.spotPrice,
+    effectiveSpot,
     inputs.strikePrice,
     inputs.riskFreeRate,
     seasonalQ,
@@ -205,7 +217,7 @@ export function priceProtectionPlan(inputs: PricingInputs): PricingResult {
 
   // Seasonal contribution for transparency
   const noSeasonalPrice = blackScholesCall(
-    inputs.spotPrice,
+    effectiveSpot,
     inputs.strikePrice,
     inputs.riskFreeRate,
     0,
@@ -220,7 +232,7 @@ export function priceProtectionPlan(inputs: PricingInputs): PricingResult {
   const upfrontPrice = totalPerGallon * totalGallons;
 
   const greeks = computeGreeks(
-    inputs.spotPrice,
+    effectiveSpot,
     inputs.strikePrice,
     inputs.riskFreeRate,
     seasonalQ,
@@ -281,7 +293,8 @@ export function generateTierComparison(
   volatility: number,
   riskFreeRate: number,
   currentMonth: number,
-  termDays?: number
+  termDays?: number,
+  afterHoursBuffer?: number
 ): TierRow[] {
   const offsets = [0.10, 0.25, 0.50, 0.75, 1.0, 1.5, 2.0];
   return offsets.map((offset) => {
@@ -294,6 +307,7 @@ export function generateTierComparison(
       riskFreeRate,
       currentMonth,
       termDays,
+      afterHoursBuffer,
     });
     return {
       strikePrice: strike,

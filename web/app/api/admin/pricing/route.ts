@@ -18,6 +18,31 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // WHY: Before returning, check if any scheduled config has passed its
+  // effectiveAt time and should auto-activate. This runs on every GET so
+  // the dashboard always reflects the current state.
+  const now = new Date();
+  const pendingConfigs = await prisma.pricingConfig.findMany({
+    where: {
+      isActive: false,
+      effectiveAt: { not: null, lte: now },
+    },
+    orderBy: { effectiveAt: "desc" },
+    take: 1,
+  });
+
+  if (pendingConfigs.length > 0) {
+    // Deactivate current, activate the scheduled one
+    await prisma.pricingConfig.updateMany({
+      where: { isActive: true },
+      data: { isActive: false },
+    });
+    await prisma.pricingConfig.update({
+      where: { id: pendingConfigs[0].id },
+      data: { isActive: true },
+    });
+  }
+
   const configs = await prisma.pricingConfig.findMany({
     orderBy: { createdAt: "desc" },
     take: 20,
@@ -26,7 +51,7 @@ export async function GET() {
   return NextResponse.json(configs);
 }
 
-/** POST /api/admin/pricing — create a new pricing config (deactivates previous) */
+/** POST /api/admin/pricing — create a new pricing config */
 export async function POST(request: NextRequest) {
   const session = await requireAdmin();
   if (!session) {
@@ -35,18 +60,23 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+    const effectiveAt = body.effectiveAt ? new Date(body.effectiveAt) : null;
+    // WHY: If effectiveAt is in the future, create as inactive (scheduled).
+    // If effectiveAt is null or in the past, activate immediately.
+    const activateNow = !effectiveAt || effectiveAt <= new Date();
 
-    // WHY: Deactivate all existing configs, then create the new one as active.
-    // This ensures exactly one active config at all times.
-    await prisma.pricingConfig.updateMany({
-      where: { isActive: true },
-      data: { isActive: false },
-    });
+    if (activateNow) {
+      await prisma.pricingConfig.updateMany({
+        where: { isActive: true },
+        data: { isActive: false },
+      });
+    }
 
     const config = await prisma.pricingConfig.create({
       data: {
         label: body.label || null,
-        isActive: true,
+        isActive: activateNow,
+        effectiveAt,
         volatility: body.volatility ?? 0.40,
         riskFreeRate: body.riskFreeRate ?? 0.045,
         operationalLoad: body.operationalLoad ?? 0.05,

@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { href: "/admin/exposure", label: "Exposure" },
   { href: "/admin/hedge-book", label: "Hedge Book" },
   { href: "/admin/hedge-queue", label: "Hedge Queue" },
+  { href: "/admin/site-traffic", label: "Site Traffic" },
   { href: "/admin/settings", label: "Settings" },
 ];
 

@@ -35,6 +35,22 @@ export default function Home() {
   const calculatorRef = useRef<HTMLDivElement>(null);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
 
+  // WHY: Anonymous session ID for funnel analytics. Generated once per page
+  // load so we can group a visitor's step events into a single session.
+  // useRef so it survives re-renders but resets on page reload (new visit).
+  const analyticsSessionId = useRef(
+    typeof crypto !== "undefined" ? crypto.randomUUID() : Math.random().toString(36).slice(2)
+  );
+
+  // WHY: Fire-and-forget — analytics should never block the UI or show errors.
+  const trackStep = useCallback((step: string, zip?: string) => {
+    fetch("/api/analytics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: analyticsSessionId.current, step, zip }),
+    }).catch(() => {}); // Silently ignore failures
+  }, []);
+
   // WHY: Post-signup plan creation is disabled in waitlist mode.
   // The original logic stashed plan data in sessionStorage and created
   // it after auth. We'll re-enable this when we go live for real.
@@ -71,9 +87,9 @@ export default function Home() {
   // WHY: Default to 30-day term so users see the lowest entry price first.
   const [selectedTerm, setSelectedTerm] = useState(30);
   const [result, setResult] = useState<PricingResult | null>(null);
-  const [tiers, setTiers] = useState<TierRow[]>([]);
   const [tiers1mo, setTiers1mo] = useState<TierRow[]>([]);
   const [tiers3mo, setTiers3mo] = useState<TierRow[]>([]);
+  const [tiers6mo, setTiers6mo] = useState<TierRow[]>([]);
 
   // --- Waitlist state ---
   const [showWaitlist, setShowWaitlist] = useState(false);
@@ -234,6 +250,7 @@ export default function Home() {
     setStrikePrice(Math.round((finalPrice + 0.50) * 100) / 100);
     setPriceLoading(false);
     setCalcStep(2);
+    trackStep("zip_entered", zip);
   }
 
 
@@ -254,16 +271,18 @@ export default function Home() {
     });
     setResult(pricingResult);
     const genTiers = (days: number) => generateTierComparison(
-      localPrice.price, monthlyGallons, pricingVolatility, pricingRate, currentMonth, days
+      localPrice.price, monthlyGallons, pricingVolatility, pricingRate, currentMonth, days,
+      undefined, pricingOpLoad, pricingProfit, pricingAdvSel
     );
     setTiers1mo(genTiers(30));
     setTiers3mo(genTiers(90));
-    setTiers(genTiers(termDays));
+    setTiers6mo(genTiers(180));
   }
 
   function handleGetQuote() {
     computeQuote(selectedTerm);
     setCalcStep(5);
+    trackStep("quote_viewed", locationQuery.replace(/\D/g, ""));
   }
 
   function handleTermChange(months: number) {
@@ -277,9 +296,9 @@ export default function Home() {
     setBaseRegularPrice(0);
     setCityState("");
     setResult(null);
-    setTiers([]);
     setTiers1mo([]);
     setTiers3mo([]);
+    setTiers6mo([]);
     setLocationQuery("");
     setSelectedAddress(null);
     setAddressResults([]);
@@ -355,6 +374,7 @@ export default function Home() {
     if (!result || !localPrice) return;
     setShowWaitlist(true);
     setWaitlistError("");
+    trackStep("waitlist_opened", locationQuery.replace(/\D/g, ""));
   }
 
   async function handleWaitlistSubmit() {
@@ -389,6 +409,7 @@ export default function Home() {
 
       if (res.ok) {
         setWaitlistDone(true);
+        trackStep("waitlist_submitted", locationQuery.replace(/\D/g, ""));
       } else {
         const data = await res.json();
         setWaitlistError(data.error || "Something went wrong. Please try again.");
@@ -901,6 +922,7 @@ export default function Home() {
                   onClick={() => {
                     setSkipVehicle(false);
                     setCalcStep(3);
+                    trackStep("vehicle_selected", locationQuery.replace(/\D/g, ""));
                   }}
                   disabled={!vehicleMpg}
                   className={`px-5 py-2 text-sm font-semibold rounded-lg transition ${
@@ -917,6 +939,7 @@ export default function Home() {
                     setManualGallons(80);
                     if (!vehicleFuel) setVehicleFuel("Regular Gasoline");
                     setCalcStep(3);
+                    trackStep("vehicle_skipped", locationQuery.replace(/\D/g, ""));
                   }}
                   className="ml-auto text-sm text-gray-400 hover:text-emerald-600 transition"
                 >
@@ -1086,6 +1109,7 @@ export default function Home() {
                       setStrikePrice(Math.round((adjusted + 0.50) * 100) / 100);
                     }
                     setCalcStep(4);
+                    trackStep("usage_set", locationQuery.replace(/\D/g, ""));
                   }}
                   className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition"
                 >
@@ -1104,6 +1128,9 @@ export default function Home() {
                   Current average in {localPrice.areaName}: <span className="text-gray-900 font-semibold">${localPrice.price.toFixed(2)}/gal</span>.
                   What&apos;s the most you&apos;d want to pay?
                 </p>
+                <p className="text-gray-400 text-xs mt-1">
+                  If gas rises above this price, PumpLock pays you the difference. The closer to the current price, the more protection you get — but the higher the membership cost.
+                </p>
               </div>
 
               <div className="text-center py-4">
@@ -1111,9 +1138,15 @@ export default function Home() {
                   ${strikePrice.toFixed(2)}
                   <span className="text-lg text-gray-500 font-normal">/gal</span>
                 </p>
-                <p className="text-sm text-emerald-600">
-                  +${(strikePrice - localPrice.price).toFixed(2)} above current price
-                </p>
+                {strikePrice > localPrice.price ? (
+                  <p className="text-sm text-emerald-600">
+                    +${(strikePrice - localPrice.price).toFixed(2)} above current price
+                  </p>
+                ) : (
+                  <p className="text-sm text-amber-600 font-medium">
+                    At or below current price — payouts start immediately
+                  </p>
+                )}
               </div>
 
               <div>
@@ -1133,8 +1166,9 @@ export default function Home() {
               </div>
 
               {strikePrice <= localPrice.price && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
-                  Your max is at or below the current average. You&apos;d start receiving payouts immediately, so the plan price will be higher.
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-sm text-amber-800">
+                  <p className="font-semibold mb-1">Heads up: Your ceiling is at or below today&apos;s average</p>
+                  <p className="text-amber-700">You&apos;d start receiving payouts on day one, which means the membership cost will be higher. Slide right to lower your cost.</p>
                 </div>
               )}
 
@@ -1192,12 +1226,20 @@ export default function Home() {
                 <p className="text-sm text-gray-500 mb-5">
                   One payment of ${result.upfrontPrice.toFixed(2)}
                 </p>
-                <button
-                  onClick={handleGetProtected}
-                  className="px-8 py-3 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20 bg-emerald-600 hover:bg-emerald-700"
-                >
-                  Join the Waitlist
-                </button>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => setCalcStep(4)}
+                    className="px-5 py-3 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition"
+                  >
+                    Adjust Quote
+                  </button>
+                  <button
+                    onClick={handleGetProtected}
+                    className="px-8 py-3 text-white text-lg font-bold rounded-xl transition shadow-lg shadow-emerald-600/20 bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    Join the Waitlist
+                  </button>
+                </div>
               </div>
 
               {/* Coverage details */}
@@ -1244,17 +1286,20 @@ export default function Home() {
                     <thead>
                       <tr className="text-gray-400 text-xs uppercase tracking-wider">
                         <th className="px-4 py-3 text-left">Max Price</th>
-                        <th className="px-4 py-3 text-right">~Per Month</th>
-                        <th className="px-4 py-3 text-right">1-Mo Plan</th>
-                        <th className="px-4 py-3 text-right">3-Mo Plan</th>
-                        <th className="px-4 py-3 text-right">6-Mo Plan</th>
+                        <th className="px-4 py-3 text-right">1-Mo /mo</th>
+                        <th className="px-4 py-3 text-right">3-Mo /mo</th>
+                        <th className="px-4 py-3 text-right">6-Mo /mo</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {tiers.map((tier, i) => {
-                        const isSelected = Math.abs(tier.strikePrice - result.strikePrice) < 0.01;
+                      {tiers1mo.map((_, i) => {
                         const t1 = tiers1mo[i];
                         const t3 = tiers3mo[i];
+                        const t6 = tiers6mo[i];
+                        // WHY: Use whichever term's tier exists to get the strike price for the row
+                        const tier = t1 || t3 || t6;
+                        if (!tier) return null;
+                        const isSelected = Math.abs(tier.strikePrice - result.strikePrice) < 0.01;
                         return (
                           <tr
                             key={tier.strikePrice}
@@ -1283,17 +1328,14 @@ export default function Home() {
                               ${tier.strikePrice.toFixed(2)}
                               {isSelected && <span className="ml-2 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Selected</span>}
                             </td>
-                            <td className={`px-4 py-3 text-right font-semibold ${isSelected ? "text-emerald-600" : "text-gray-900"}`}>
-                              ${tier.monthlyEquivalent.toFixed(2)}
+                            <td className={`px-4 py-3 text-right font-mono ${selectedTerm === 30 && isSelected ? "text-emerald-600 font-semibold" : "text-gray-500"}`}>
+                              {t1 ? `$${t1.monthlyEquivalent.toFixed(2)}` : "—"}
                             </td>
-                            <td className="px-4 py-3 text-right text-gray-500 font-mono">
-                              {t1 ? `$${t1.upfrontPrice.toFixed(2)}` : "—"}
+                            <td className={`px-4 py-3 text-right font-mono ${selectedTerm === 90 && isSelected ? "text-emerald-600 font-semibold" : "text-gray-500"}`}>
+                              {t3 ? `$${t3.monthlyEquivalent.toFixed(2)}` : "—"}
                             </td>
-                            <td className="px-4 py-3 text-right text-gray-500 font-mono">
-                              {t3 ? `$${t3.upfrontPrice.toFixed(2)}` : "—"}
-                            </td>
-                            <td className="px-4 py-3 text-right text-gray-500 font-mono">
-                              ${tier.upfrontPrice.toFixed(2)}
+                            <td className={`px-4 py-3 text-right font-mono ${selectedTerm === 180 && isSelected ? "text-emerald-600 font-semibold" : "text-gray-500"}`}>
+                              {t6 ? `$${t6.monthlyEquivalent.toFixed(2)}` : "—"}
                             </td>
                           </tr>
                         );
@@ -1383,7 +1425,7 @@ export default function Home() {
             <span className="text-sm font-semibold text-gray-500">PumpLock</span>
           </button>
           <p className="text-xs text-gray-400">
-            &copy; {new Date().getFullYear()} PumpLock. For illustration purposes. Not financial advice.
+            &copy; {new Date().getFullYear()} PumpLock
           </p>
           <div className="flex gap-4 text-xs text-gray-400">
             <a href="/privacy" className="hover:text-gray-600 transition">Privacy</a>

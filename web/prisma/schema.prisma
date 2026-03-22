@@ -417,3 +417,18 @@ model StrikeBucket {
   @@index([status])
   @@index([instrument, expiryMonth])
 }
+
+// WHY: Tracks anonymous user progression through the quote calculator funnel.
+// Each step transition fires a lightweight event so the admin can see where
+// visitors drop off (e.g., 500 entered zip → 300 selected vehicle → 50 joined waitlist).
+model FunnelEvent {
+  id        String   @id @default(cuid())
+  sessionId String   // Random browser-generated ID; groups events from one visit
+  step      String   // "zip_entered", "vehicle_selected", "vehicle_skipped", "usage_set", "quote_viewed", "waitlist_opened", "waitlist_submitted"
+  zip       String?  // Zip code if available at this step
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([step])
+  @@index([createdAt])
+}

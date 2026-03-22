@@ -1154,9 +1154,9 @@ export default function Home() {
                 <input
                   type="range"
                   min={Math.round(localPrice.price * 100)}
-                  // WHY: +$1.00 range is realistic — a $1/gal spike is already
-                  // a major event. +$3 showed prices that would never happen.
-                  max={Math.round((localPrice.price + 1) * 100)}
+                  // WHY: +$1.50 range covers realistic price spikes without
+                  // showing unrealistic prices that would never happen.
+                  max={Math.round((localPrice.price + 1.5) * 100)}
                   step={5}
                   value={Math.round(strikePrice * 100)}
                   onChange={(e) => setStrikePrice(Number(e.target.value) / 100)}
@@ -1164,7 +1164,7 @@ export default function Home() {
                 />
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
                   <span>${localPrice.price.toFixed(2)} (tighter = more protection)</span>
-                  <span>${(localPrice.price + 1).toFixed(2)} (wider = lower price)</span>
+                  <span>${(localPrice.price + 1.5).toFixed(2)} (wider = lower price)</span>
                 </div>
               </div>
 

@@ -1366,37 +1366,43 @@ export default function Home() {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" className="relative py-20 px-4 border-t border-gray-200 overflow-hidden">
-        <GasMapBg />
-        <div className="relative max-w-2xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-black text-gray-900 text-center mb-12">
-            Frequently Asked Questions
-          </h2>
-          <div className="space-y-3">
-            {faqs.map((faq, i) => (
-              <div key={i} className="border border-gray-200 rounded-xl overflow-hidden bg-white/90 backdrop-blur-sm">
-                <button
-                  onClick={() => setFaqOpen(faqOpen === i ? null : i)}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/80 transition"
-                >
-                  <span className="font-semibold text-gray-900 pr-4">{faq.q}</span>
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className={`w-5 h-5 text-gray-400 shrink-0 transition-transform ${faqOpen === i ? "rotate-180" : ""}`}
+      {/* WHY: The map is a fixed-height backdrop. The FAQ content scrolls
+           over it so expanding answers doesn't stretch the map. */}
+      <section id="faq" className="relative border-t border-gray-200">
+        <div className="sticky top-0 h-[600px] overflow-hidden">
+          <GasMapBg />
+        </div>
+        <div className="relative -mt-[600px] min-h-[600px] py-20 px-4">
+          <div className="max-w-2xl mx-auto">
+            <h2 className="text-3xl sm:text-4xl font-black text-gray-900 text-center mb-12 drop-shadow-sm">
+              Frequently Asked Questions
+            </h2>
+            <div className="space-y-3">
+              {faqs.map((faq, i) => (
+                <div key={i} className="border border-gray-200 rounded-xl overflow-hidden bg-white/90 backdrop-blur-sm shadow-sm">
+                  <button
+                    onClick={() => setFaqOpen(faqOpen === i ? null : i)}
+                    className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/80 transition"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                  </svg>
-                </button>
-                {faqOpen === i && (
-                  <div className="px-5 pb-4 text-gray-600 text-sm leading-relaxed">
-                    {faq.a}
-                  </div>
-                )}
-              </div>
-            ))}
+                    <span className="font-semibold text-gray-900 pr-4">{faq.q}</span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className={`w-5 h-5 text-gray-400 shrink-0 transition-transform ${faqOpen === i ? "rotate-180" : ""}`}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+                  {faqOpen === i && (
+                    <div className="px-5 pb-4 text-gray-600 text-sm leading-relaxed">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

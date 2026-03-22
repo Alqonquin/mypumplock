@@ -2,28 +2,11 @@
 
 import { useEffect, useRef } from "react";
 
-// WHY: Decorative canvas that draws a stylized street-map with gas station
-// price markers — visually demonstrates that PumpLock averages local prices
-// across many stations, not just one. Designed as a subtle background.
+// WHY: Decorative canvas that draws a realistic-looking street map with gas
+// station price markers — visually demonstrates that PumpLock averages local
+// prices across many stations. Designed as a subtle FAQ background.
 
-// Map colors — muted so FAQ text remains readable
-const ROAD_COLOR = "rgba(0, 0, 0, 0.06)";
-const ROAD_MAJOR_COLOR = "rgba(0, 0, 0, 0.09)";
-const BG_COLOR = "#fafbfc";
-const BLOCK_COLORS = [
-  "rgba(5, 150, 105, 0.015)",
-  "rgba(5, 150, 105, 0.025)",
-  "rgba(0, 0, 0, 0.008)",
-  "rgba(0, 0, 0, 0.012)",
-];
-
-// WHY: Pin radius and font sized so prices are legible but not dominant.
-const PIN_RADIUS = 16;
-const PIN_FONT = "bold 9px sans-serif";
-const PIN_LABEL_FONT = "7px sans-serif";
-
-// WHY: Seeded random for deterministic layout — same map every load
-// so it doesn't feel chaotic or shift on re-render.
+// WHY: Seeded random for deterministic layout — same map every page load.
 function seededRandom(seed: number) {
   let s = seed;
   return () => {
@@ -33,28 +16,25 @@ function seededRandom(seed: number) {
 }
 
 interface Station {
-  x: number; // fractional 0-1
+  x: number;
   y: number;
   price: number;
   brand: string;
 }
 
-// WHY: Realistic price spread around a base — stations within a few miles
-// can vary $0.20+, which is exactly what PumpLock averages across.
+// WHY: Realistic price spread — stations within a few miles can vary $0.20+.
 function generateStations(rng: () => number, count: number): Station[] {
   const brands = [
     "Shell", "BP", "Chevron", "Exxon", "Mobil", "Sunoco",
     "Marathon", "Circle K", "Wawa", "Costco", "7-Eleven",
     "QuikTrip", "RaceTrac", "Valero", "Phillips 66",
   ];
-  const basePrice = 3.29 + rng() * 0.30; // $3.29–$3.59 base
+  const basePrice = 3.29 + rng() * 0.30;
   const stations: Station[] = [];
-
   for (let i = 0; i < count; i++) {
     stations.push({
-      x: 0.05 + rng() * 0.90,
-      y: 0.05 + rng() * 0.90,
-      // WHY: ±$0.25 spread from base creates realistic local variation.
+      x: 0.06 + rng() * 0.88,
+      y: 0.06 + rng() * 0.88,
       price: basePrice + (rng() - 0.4) * 0.50,
       brand: brands[Math.floor(rng() * brands.length)],
     });
@@ -62,42 +42,152 @@ function generateStations(rng: () => number, count: number): Station[] {
   return stations;
 }
 
-// WHY: Grid of horizontal and vertical lines simulates a road map.
-// Major roads are thicker/darker; minor roads fill the blocks.
-interface Road {
-  x1: number; y1: number; x2: number; y2: number;
-  major: boolean;
+// WHY: Bezier curves through waypoints make roads look organic, not grid-like.
+interface RoadPath {
+  points: { x: number; y: number }[];
+  width: number;
+  color: string;
+  label?: string;
 }
 
-function generateRoads(rng: () => number): Road[] {
-  const roads: Road[] = [];
+function generateRoadNetwork(rng: () => number): RoadPath[] {
+  const roads: RoadPath[] = [];
 
-  // Major grid — roughly 4-5 horizontal + vertical arteries
-  const hMajor = [0.15, 0.38, 0.62, 0.85];
-  const vMajor = [0.12, 0.35, 0.55, 0.78, 0.92];
-  for (const y of hMajor) {
-    const jitter = (rng() - 0.5) * 0.02;
-    roads.push({ x1: 0, y1: y + jitter, x2: 1, y2: y + jitter, major: true });
-  }
-  for (const x of vMajor) {
-    const jitter = (rng() - 0.5) * 0.02;
-    roads.push({ x1: x + jitter, y1: 0, x2: x + jitter, y2: 1, major: true });
-  }
+  // WHY: Major roads curve gently across the map — like real arterials.
+  // Each has 4-6 waypoints with randomized offsets for organic shape.
+  const majorColor = "rgba(255, 255, 255, 0.95)";
+  const minorColor = "rgba(255, 255, 255, 0.7)";
 
-  // Minor roads — fill in the grid blocks
-  for (let i = 0; i < 12; i++) {
-    const isHorizontal = rng() > 0.5;
-    const pos = 0.05 + rng() * 0.90;
-    const start = rng() * 0.3;
-    const end = 0.7 + rng() * 0.3;
-    if (isHorizontal) {
-      roads.push({ x1: start, y1: pos, x2: end, y2: pos, major: false });
-    } else {
-      roads.push({ x1: pos, y1: start, x2: pos, y2: end, major: false });
+  // Horizontal arterials (3 roads with curves)
+  const hPositions = [0.22, 0.52, 0.78];
+  const hLabels = ["W 42nd St", "Main St", "Oak Ave"];
+  for (let i = 0; i < hPositions.length; i++) {
+    const base = hPositions[i];
+    const pts: { x: number; y: number }[] = [];
+    for (let t = 0; t <= 1; t += 0.15) {
+      pts.push({
+        x: t,
+        y: base + (rng() - 0.5) * 0.06 + Math.sin(t * Math.PI) * (rng() - 0.5) * 0.04,
+      });
     }
+    roads.push({ points: pts, width: 6, color: majorColor, label: hLabels[i] });
+  }
+
+  // Vertical arterials (3 roads with curves)
+  const vPositions = [0.18, 0.48, 0.75];
+  const vLabels = ["N 5th Ave", "Elm Blvd", "Park Dr"];
+  for (let i = 0; i < vPositions.length; i++) {
+    const base = vPositions[i];
+    const pts: { x: number; y: number }[] = [];
+    for (let t = 0; t <= 1; t += 0.15) {
+      pts.push({
+        x: base + (rng() - 0.5) * 0.05 + Math.sin(t * Math.PI * 1.5) * (rng() - 0.5) * 0.03,
+        y: t,
+      });
+    }
+    roads.push({ points: pts, width: 6, color: majorColor, label: vLabels[i] });
+  }
+
+  // Diagonal / curved collector roads
+  roads.push({
+    points: [
+      { x: 0.05, y: 0.90 },
+      { x: 0.15, y: 0.72 },
+      { x: 0.30, y: 0.60 },
+      { x: 0.50, y: 0.55 },
+      { x: 0.70, y: 0.58 },
+      { x: 0.85, y: 0.50 },
+    ],
+    width: 4, color: majorColor,
+  });
+  roads.push({
+    points: [
+      { x: 0.10, y: 0.15 },
+      { x: 0.25, y: 0.30 },
+      { x: 0.40, y: 0.35 },
+      { x: 0.60, y: 0.30 },
+      { x: 0.90, y: 0.35 },
+    ],
+    width: 4, color: majorColor,
+  });
+
+  // Minor residential streets — short, connecting segments
+  for (let i = 0; i < 20; i++) {
+    const sx = rng();
+    const sy = rng();
+    const len = 0.08 + rng() * 0.15;
+    const angle = rng() * Math.PI * 2;
+    const ex = sx + Math.cos(angle) * len;
+    const ey = sy + Math.sin(angle) * len;
+    // WHY: Add a midpoint with slight curve to avoid ruler-straight lines.
+    const mx = (sx + ex) / 2 + (rng() - 0.5) * 0.03;
+    const my = (sy + ey) / 2 + (rng() - 0.5) * 0.03;
+    roads.push({
+      points: [{ x: sx, y: sy }, { x: mx, y: my }, { x: ex, y: ey }],
+      width: 2, color: minorColor,
+    });
   }
 
   return roads;
+}
+
+// WHY: Organic shapes for parks and water give the map a real cartographic feel
+// instead of looking like a grid layout.
+interface MapFeature {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  rotation: number;
+  type: "park" | "water";
+}
+
+function generateFeatures(rng: () => number): MapFeature[] {
+  const features: MapFeature[] = [];
+  // Parks (green spaces)
+  for (let i = 0; i < 4; i++) {
+    features.push({
+      cx: 0.1 + rng() * 0.8,
+      cy: 0.1 + rng() * 0.8,
+      rx: 0.03 + rng() * 0.05,
+      ry: 0.02 + rng() * 0.04,
+      rotation: rng() * Math.PI,
+      type: "park",
+    });
+  }
+  // Water (pond / lake)
+  features.push({
+    cx: 0.82 + rng() * 0.08,
+    cy: 0.75 + rng() * 0.10,
+    rx: 0.06 + rng() * 0.04,
+    ry: 0.04 + rng() * 0.03,
+    rotation: rng() * Math.PI * 0.5,
+    type: "water",
+  });
+  return features;
+}
+
+// WHY: Draw a smooth curve through waypoints using quadratic bezier segments.
+// This is what makes roads look like real roads instead of zigzag lines.
+function drawSmoothPath(ctx: CanvasRenderingContext2D, points: { x: number; y: number }[], w: number, h: number) {
+  if (points.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x * w, points[0].y * h);
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x * w, points[1].y * h);
+  } else {
+    for (let i = 0; i < points.length - 1; i++) {
+      const curr = points[i];
+      const next = points[i + 1];
+      // WHY: Use midpoint as control point for smooth transitions between segments.
+      const cpx = ((curr.x + next.x) / 2) * w;
+      const cpy = ((curr.y + next.y) / 2) * h;
+      ctx.quadraticCurveTo(curr.x * w, curr.y * h, cpx, cpy);
+    }
+    const last = points[points.length - 1];
+    ctx.lineTo(last.x * w, last.y * h);
+  }
+  ctx.stroke();
 }
 
 export function GasMapBg() {
@@ -111,25 +201,9 @@ export function GasMapBg() {
 
     const rng = seededRandom(42);
     const stations = generateStations(rng, 18);
-    const roads = generateRoads(rng);
-
-    // WHY: Generate city blocks as filled rectangles between major roads
-    // to give the map depth and a neighborhood feel.
-    const blocks: { x: number; y: number; w: number; h: number; color: string }[] = [];
-    const hLines = [0, 0.15, 0.38, 0.62, 0.85, 1];
-    const vLines = [0, 0.12, 0.35, 0.55, 0.78, 0.92, 1];
-    for (let r = 0; r < hLines.length - 1; r++) {
-      for (let c = 0; c < vLines.length - 1; c++) {
-        const inset = 0.005;
-        blocks.push({
-          x: vLines[c] + inset,
-          y: hLines[r] + inset,
-          w: vLines[c + 1] - vLines[c] - inset * 2,
-          h: hLines[r + 1] - hLines[r] - inset * 2,
-          color: BLOCK_COLORS[Math.floor(rng() * BLOCK_COLORS.length)],
-        });
-      }
-    }
+    const roads = generateRoadNetwork(rng);
+    const features = generateFeatures(rng);
+    const avg = stations.reduce((sum, st) => sum + st.price, 0) / stations.length;
 
     function draw() {
       const dpr = window.devicePixelRatio || 1;
@@ -140,106 +214,163 @@ export function GasMapBg() {
       canvas!.height = h * dpr;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // Background
-      ctx!.fillStyle = BG_COLOR;
+      // WHY: Base color matches Google Maps land color for familiarity.
+      ctx!.fillStyle = "#e8e4da";
       ctx!.fillRect(0, 0, w, h);
 
-      // City blocks
-      for (const b of blocks) {
-        ctx!.fillStyle = b.color;
+      // Map features — parks and water bodies
+      for (const f of features) {
+        ctx!.save();
+        ctx!.translate(f.cx * w, f.cy * h);
+        ctx!.rotate(f.rotation);
         ctx!.beginPath();
-        ctx!.roundRect(b.x * w, b.y * h, b.w * w, b.h * h, 3);
+        ctx!.ellipse(0, 0, f.rx * w, f.ry * h, 0, 0, Math.PI * 2);
+        if (f.type === "park") {
+          ctx!.fillStyle = "rgba(170, 210, 170, 0.5)";
+        } else {
+          ctx!.fillStyle = "rgba(170, 210, 230, 0.5)";
+        }
         ctx!.fill();
+        ctx!.restore();
       }
 
-      // Roads
-      for (const r of roads) {
-        ctx!.strokeStyle = r.major ? ROAD_MAJOR_COLOR : ROAD_COLOR;
-        ctx!.lineWidth = r.major ? 3 : 1.5;
-        ctx!.beginPath();
-        ctx!.moveTo(r.x1 * w, r.y1 * h);
-        ctx!.lineTo(r.x2 * w, r.y2 * h);
-        ctx!.stroke();
+      // Roads — draw border (dark) then fill (light) for realistic road edges
+      for (const road of roads) {
+        // Road border/casing
+        ctx!.strokeStyle = "rgba(0, 0, 0, 0.08)";
+        ctx!.lineWidth = road.width + 2;
+        ctx!.lineCap = "round";
+        ctx!.lineJoin = "round";
+        drawSmoothPath(ctx!, road.points, w, h);
+
+        // Road fill
+        ctx!.strokeStyle = road.color;
+        ctx!.lineWidth = road.width;
+        drawSmoothPath(ctx!, road.points, w, h);
+      }
+
+      // Road labels on major roads
+      ctx!.font = "8px sans-serif";
+      ctx!.fillStyle = "rgba(0, 0, 0, 0.18)";
+      ctx!.textAlign = "center";
+      ctx!.textBaseline = "middle";
+      for (const road of roads) {
+        if (!road.label || road.points.length < 3) continue;
+        // Place label at the midpoint of the road
+        const mid = road.points[Math.floor(road.points.length / 2)];
+        ctx!.fillText(road.label, mid.x * w, mid.y * h - 8);
       }
 
       // Station pins
+      // WHY: Larger radius so the price text has room to be bigger and readable.
+      const PIN_R = 20;
       for (const s of stations) {
         const sx = s.x * w;
         const sy = s.y * h;
 
-        // WHY: Color-code pins green→amber→red based on price relative to
-        // the group average, visually showing the spread PumpLock averages.
-        const avg = stations.reduce((sum, st) => sum + st.price, 0) / stations.length;
         const diff = s.price - avg;
         let pinColor: string;
         let pinBorder: string;
-        let textColor: string;
+        // WHY: Lighter, pastel-ish bubbles so they don't overpower the FAQ text.
         if (diff < -0.08) {
-          pinColor = "rgba(5, 150, 105, 0.85)";
-          pinBorder = "rgba(5, 150, 105, 1)";
-          textColor = "#fff";
+          pinColor = "rgba(74, 200, 160, 0.75)";
+          pinBorder = "rgba(74, 200, 160, 0.9)";
         } else if (diff > 0.08) {
-          pinColor = "rgba(239, 68, 68, 0.85)";
-          pinBorder = "rgba(239, 68, 68, 1)";
-          textColor = "#fff";
+          pinColor = "rgba(240, 120, 110, 0.75)";
+          pinBorder = "rgba(240, 120, 110, 0.9)";
         } else {
-          pinColor = "rgba(245, 158, 11, 0.85)";
-          pinBorder = "rgba(245, 158, 11, 1)";
-          textColor = "#fff";
+          pinColor = "rgba(250, 190, 80, 0.80)";
+          pinBorder = "rgba(250, 190, 80, 0.9)";
         }
 
         // Drop shadow
         ctx!.beginPath();
-        ctx!.arc(sx, sy + 2, PIN_RADIUS, 0, Math.PI * 2);
-        ctx!.fillStyle = "rgba(0,0,0,0.08)";
+        ctx!.arc(sx + 1, sy + 2, PIN_R, 0, Math.PI * 2);
+        ctx!.fillStyle = "rgba(0,0,0,0.12)";
+        ctx!.fill();
+
+        // Pin pointer triangle (below circle)
+        ctx!.beginPath();
+        ctx!.moveTo(sx - 5, sy + PIN_R - 3);
+        ctx!.lineTo(sx + 5, sy + PIN_R - 3);
+        ctx!.lineTo(sx, sy + PIN_R + 7);
+        ctx!.closePath();
+        ctx!.fillStyle = pinColor;
         ctx!.fill();
 
         // Pin circle
         ctx!.beginPath();
-        ctx!.arc(sx, sy, PIN_RADIUS, 0, Math.PI * 2);
+        ctx!.arc(sx, sy, PIN_R, 0, Math.PI * 2);
         ctx!.fillStyle = pinColor;
         ctx!.fill();
         ctx!.strokeStyle = pinBorder;
         ctx!.lineWidth = 1.5;
         ctx!.stroke();
 
-        // Price text
+        // Price text — larger for readability
         ctx!.textAlign = "center";
         ctx!.textBaseline = "middle";
-        ctx!.font = PIN_FONT;
-        ctx!.fillStyle = textColor;
+        ctx!.font = "bold 13px sans-serif";
+        ctx!.fillStyle = "#fff";
         ctx!.fillText(`$${s.price.toFixed(2)}`, sx, sy);
 
         // Brand name below pin
-        ctx!.font = PIN_LABEL_FONT;
-        ctx!.fillStyle = "rgba(0, 0, 0, 0.25)";
-        ctx!.fillText(s.brand, sx, sy + PIN_RADIUS + 9);
+        ctx!.font = "8px sans-serif";
+        ctx!.fillStyle = "rgba(0, 0, 0, 0.30)";
+        ctx!.fillText(s.brand, sx, sy + PIN_R + 14);
       }
 
-      // WHY: "Average" callout in the corner reinforces the PumpLock value prop.
-      const avg = stations.reduce((sum, st) => sum + st.price, 0) / stations.length;
-      const boxW = 190;
-      const boxH = 52;
+      // Local Average callout — Regular, Premium, Diesel
+      const boxW = 200;
+      const boxH = 82;
       const boxX = w - boxW - 20;
-      const boxY = 20;
+      const boxY = 16;
 
-      ctx!.fillStyle = "rgba(255, 255, 255, 0.75)";
+      ctx!.fillStyle = "rgba(255, 255, 255, 0.88)";
       ctx!.beginPath();
       ctx!.roundRect(boxX, boxY, boxW, boxH, 8);
       ctx!.fill();
-      ctx!.strokeStyle = "rgba(5, 150, 105, 0.2)";
+      ctx!.strokeStyle = "rgba(5, 150, 105, 0.25)";
       ctx!.lineWidth = 1;
       ctx!.stroke();
 
       ctx!.textAlign = "left";
       ctx!.textBaseline = "top";
       ctx!.font = "bold 11px sans-serif";
-      ctx!.fillStyle = "rgba(5, 150, 105, 0.7)";
+      ctx!.fillStyle = "rgba(5, 150, 105, 0.75)";
       ctx!.fillText("LOCAL AVERAGE", boxX + 12, boxY + 10);
 
-      ctx!.font = "bold 22px monospace";
-      ctx!.fillStyle = "rgba(5, 150, 105, 0.8)";
-      ctx!.fillText(`$${avg.toFixed(2)}/gal`, boxX + 12, boxY + 26);
+      // WHY: Show all three fuel types so the user sees we track
+      // Regular, Premium, and Diesel — not just one grade.
+      const regular = avg;
+      const premium = avg + 0.60; // National avg spread: Premium ~+$0.60 vs Regular
+      const diesel = avg + 0.40;  // National avg spread: Diesel ~+$0.40 vs Regular
+
+      const rowY = boxY + 28;
+      const colW = 60;
+      const labels = ["Regular", "Premium", "Diesel"];
+      const prices = [regular, premium, diesel];
+      const colors = ["rgba(5, 150, 105, 0.85)", "rgba(30, 120, 200, 0.85)", "rgba(120, 80, 40, 0.85)"];
+
+      for (let i = 0; i < 3; i++) {
+        const cx = boxX + 12 + i * colW;
+        ctx!.font = "8px sans-serif";
+        ctx!.fillStyle = "rgba(0, 0, 0, 0.40)";
+        ctx!.fillText(labels[i], cx, rowY);
+
+        ctx!.font = "bold 15px monospace";
+        ctx!.fillStyle = colors[i];
+        ctx!.fillText(`$${prices[i].toFixed(2)}`, cx, rowY + 14);
+      }
+
+      // Fuel grade dots
+      for (let i = 0; i < 3; i++) {
+        const cx = boxX + 8 + i * colW;
+        ctx!.beginPath();
+        ctx!.arc(cx, rowY + 4, 2, 0, Math.PI * 2);
+        ctx!.fillStyle = colors[i];
+        ctx!.fill();
+      }
     }
 
     draw();

@@ -294,7 +294,10 @@ export function generateTierComparison(
   riskFreeRate: number,
   currentMonth: number,
   termDays?: number,
-  afterHoursBuffer?: number
+  afterHoursBuffer?: number,
+  operationalLoad?: number,
+  profitMargin?: number,
+  adverseSelectionLoad?: number,
 ): TierRow[] {
   const offsets = [0.10, 0.25, 0.50, 0.75, 1.0, 1.5, 2.0];
   return offsets.map((offset) => {
@@ -308,6 +311,9 @@ export function generateTierComparison(
       currentMonth,
       termDays,
       afterHoursBuffer,
+      operationalLoad,
+      profitMargin,
+      adverseSelectionLoad,
     });
     return {
       strikePrice: strike,

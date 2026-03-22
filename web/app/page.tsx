@@ -13,6 +13,7 @@ import {
 import { lookupPrice, type LocalPriceResult } from "@/lib/gas-prices";
 import { searchAddresses, isNonUsAddress, type AddressResult } from "@/lib/address-search";
 import { estimateMonthlyGallons } from "@/lib/vehicles";
+import { DollarWallBg } from "@/components/dollar-wall-bg";
 
 // WHY: Normal volatility (40%) is the default for consumer-facing pricing.
 // We don't expose volatility selection to end users — it's an internal lever.
@@ -1410,8 +1411,9 @@ export default function Home() {
       </section>
 
       {/* ── Bottom CTA ── */}
-      <section className="py-20 px-4 bg-emerald-600">
-        <div className="max-w-3xl mx-auto text-center">
+      <section className="relative py-20 px-4 bg-emerald-600 overflow-hidden">
+        <DollarWallBg />
+        <div className="relative max-w-3xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
             Be the first to lock in your gas price.
           </h2>

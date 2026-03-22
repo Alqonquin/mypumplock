@@ -686,7 +686,7 @@ export default function Home() {
       </section>
 
       {/* ── Calculator ── */}
-      <section id="calculator" ref={calculatorRef} className="relative py-20 px-4 bg-gray-50 border-t border-gray-200 overflow-hidden min-h-screen">
+      <section id="calculator" ref={calculatorRef} className="relative py-20 px-4 bg-gray-50 border-t border-gray-200 overflow-hidden">
         <PriceChartBg step={calcStep} />
         <div className="relative max-w-2xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-black text-gray-900 text-center mb-2">

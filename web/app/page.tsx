@@ -518,7 +518,11 @@ export default function Home() {
             {/* Mobile-only badge — replaces the desktop badge that sits on the image */}
             <div className="mt-8 md:hidden">
               <div className="bg-white/15 backdrop-blur-md rounded-xl px-5 py-3 flex items-center justify-center gap-3 border border-white/20 w-full">
-                <PumpLockLogo className="w-8 h-8 shrink-0" />
+                {/* WHY: Icon has white interior between the green border and the
+                   padlock. A white rounded background keeps it clean on dark surfaces. */}
+                <div className="bg-white rounded-lg p-0.5 shrink-0">
+                  <PumpLockLogo className="w-8 h-8" />
+                </div>
                 <p className="text-sm text-white/90">
                   You pay your locked price.<br />
                   <span className="font-semibold text-emerald-400">We cover the rest.</span>

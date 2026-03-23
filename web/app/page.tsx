@@ -460,16 +460,42 @@ export default function Home() {
       </nav>
 
       {/* ── Hero (text + image) ── */}
-      <section className="pt-28 pb-16 sm:pt-36 sm:pb-24 px-4 bg-gradient-to-b from-emerald-50 to-white">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
-          {/* Left: text */}
+      {/* WHY: On mobile (<md) the hero image is a full-bleed background with a
+         dark gradient overlay so text stays readable. On desktop (md+) we keep
+         the original side-by-side two-column layout. This prevents mobile users
+         from seeing a text-only hero with no visual hook. */}
+      <section
+        className="relative pt-28 pb-16 sm:pt-36 sm:pb-24 px-4 overflow-hidden"
+        /* WHY: Inline background-image guarantees the hero photo renders regardless
+           of Tailwind version or class-purging. The gradient overlay + object
+           positioning are handled via CSS below, not utility classes. */
+        style={{
+          backgroundImage: "url(/hero.jpg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        {/* Dark overlay on mobile, replaced by opaque emerald gradient on desktop */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.50), rgba(0,0,0,0.60), rgba(0,0,0,0.80))",
+          }}
+        />
+        {/* WHY: On desktop (md+) we paint over the background image entirely with
+           the original emerald→white gradient so the side-by-side layout looks
+           the same as before. Only mobile users see the photo. */}
+        <div className="absolute inset-0 hidden md:block bg-gradient-to-b from-emerald-50 to-white" />
+
+        <div className="relative z-10 max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+          {/* Left: text — white on mobile (over photo), dark on desktop */}
           <div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 leading-tight tracking-tight mb-4">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-4 text-white md:text-gray-900">
               Never Overpay for
               <br />
-              <span className="text-emerald-600">Gas Again</span>
+              <span className="text-emerald-400 md:text-emerald-600">Gas Again</span>
             </h1>
-            <p className="text-lg text-gray-600 max-w-lg mb-8">
+            <p className="text-lg text-gray-200 md:text-gray-600 max-w-lg mb-8">
               The first smart membership that caps the price you pay at the pump.
               We track your local price and pay you back when fuel costs rise.
               Choose the protection that fits you and lock in your gas price today.
@@ -483,14 +509,24 @@ export default function Home() {
               </button>
               <a
                 href="#how-it-works"
-                className="px-8 py-4 bg-white hover:bg-gray-50 text-gray-700 text-lg font-semibold rounded-xl transition border border-gray-200 shadow-sm text-center"
+                className="px-8 py-4 bg-white/90 md:bg-white hover:bg-white md:hover:bg-gray-50 text-gray-700 text-lg font-semibold rounded-xl transition border border-white/30 md:border-gray-200 shadow-sm text-center backdrop-blur-sm md:backdrop-blur-none"
               >
                 Learn More
               </a>
             </div>
+
+            {/* Mobile-only badge — replaces the desktop badge that sits on the image */}
+            <div className="mt-8 md:hidden">
+              <div className="bg-white/15 backdrop-blur-md rounded-xl px-5 py-3 inline-flex items-center gap-3 border border-white/20">
+                <PumpLockLogo className="w-8 h-8 shrink-0" />
+                <p className="text-sm text-white/90">
+                  You pay your locked price. <span className="font-semibold text-emerald-400">We cover the rest.</span>
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Right: hero image — edges fade into background via CSS mask */}
+          {/* Right: hero image — desktop only, edges fade via CSS mask */}
           <div className="relative hidden md:block">
             <div className="aspect-[4/3] relative">
               <Image

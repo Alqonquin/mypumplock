@@ -26,12 +26,119 @@ interface VolData {
   }[];
 }
 
-const REGIME_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  CALM: { bg: "bg-emerald-100", text: "text-emerald-700", label: "Calm" },
-  NORMAL: { bg: "bg-blue-100", text: "text-blue-700", label: "Normal" },
-  ELEVATED: { bg: "bg-amber-100", text: "text-amber-700", label: "Elevated" },
-  CRISIS: { bg: "bg-red-100", text: "text-red-700", label: "Crisis" },
+const REGIME_STYLES: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  CALM: { bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-200", label: "Calm" },
+  NORMAL: { bg: "bg-blue-100", text: "text-blue-700", border: "border-blue-200", label: "Normal" },
+  ELEVATED: { bg: "bg-amber-100", text: "text-amber-700", border: "border-amber-200", label: "Elevated" },
+  CRISIS: { bg: "bg-red-100", text: "text-red-700", border: "border-red-200", label: "Crisis" },
 };
+
+// WHY: Shock threshold mirrors vol-monitor.ts — a 3%+ move from the 5-day
+// average triggers a vol boost. We use the same cutoff here so the overview
+// explanation stays consistent with the actual computation.
+const SHOCK_THRESHOLD = 0.03;
+
+/**
+ * Build a plain-English explanation of why the effective vol is where it is.
+ * Returns an array of { icon, text } bullets for rendering.
+ */
+function buildVolExplanation(data: VolData): { icon: string; text: string }[] {
+  const bullets: { icon: string; text: string }[] = [];
+  const effPct = (data.effectiveVol * 100).toFixed(0);
+  const rbobPct = (data.realtimeVol * 100).toFixed(0);
+  const hoPct = ((data.hoRealtimeVol ?? 0) * 100).toFixed(0);
+  const configPct = (data.configVol * 100).toFixed(0);
+
+  const rbobDriving = data.realtimeVol >= (data.hoRealtimeVol ?? 0);
+  const drivingInstrument = rbobDriving ? "RBOB Gasoline" : "Heating Oil (Diesel)";
+  const drivingVol = rbobDriving ? rbobPct : hoPct;
+  const otherInstrument = rbobDriving ? "HO" : "RBOB";
+  const otherVol = rbobDriving ? hoPct : rbobPct;
+
+  // 1. Which instrument is setting the effective vol
+  bullets.push({
+    icon: "📊",
+    text: `Effective vol is ${effPct}% — driven by ${drivingInstrument} (${drivingVol}%). ${otherInstrument} is at ${otherVol}%.`,
+  });
+
+  // 2. Shock boost detection — check if either instrument has a recent move > 3%
+  const rbobShock = Math.abs(data.recentMove) > SHOCK_THRESHOLD;
+  const hoShock = Math.abs(data.hoRecentMove ?? 0) > SHOCK_THRESHOLD;
+  const drivingShock = rbobDriving ? rbobShock : hoShock;
+  const drivingMove = rbobDriving ? data.recentMove : (data.hoRecentMove ?? 0);
+
+  if (drivingShock) {
+    const direction = drivingMove > 0 ? "up" : "down";
+    const movePct = Math.abs(drivingMove * 100).toFixed(1);
+    bullets.push({
+      icon: "⚡",
+      text: `Shock boost active — ${drivingInstrument} moved ${direction} ${movePct}% vs its 5-day average, amplifying the vol estimate.`,
+    });
+  } else if (rbobShock || hoShock) {
+    const shockInstrument = rbobShock ? "RBOB" : "HO";
+    const shockMove = rbobShock ? data.recentMove : (data.hoRecentMove ?? 0);
+    const direction = shockMove > 0 ? "up" : "down";
+    const movePct = Math.abs(shockMove * 100).toFixed(1);
+    bullets.push({
+      icon: "⚡",
+      text: `${shockInstrument} has a shock move (${direction} ${movePct}%), but it's not the driver because the other instrument has higher base vol.`,
+    });
+  } else {
+    bullets.push({
+      icon: "📈",
+      text: "No shock boost active — vol is based purely on realized price swings over the last ~60 trading days.",
+    });
+  }
+
+  // 3. Config floor relationship
+  if (data.overrideActive && data.effectiveVol > data.configVol) {
+    bullets.push({
+      icon: "🔺",
+      text: `Real-time vol (${effPct}%) exceeds the config floor (${configPct}%), so all member quotes are priced at the higher real-time rate.`,
+    });
+  } else if (data.overrideActive && data.effectiveVol < data.configVol) {
+    bullets.push({
+      icon: "🛡️",
+      text: `Real-time vol (${effPct}%) is below the config floor (${configPct}%). The config floor is keeping pricing conservative.`,
+    });
+  } else {
+    bullets.push({
+      icon: "✅",
+      text: `Real-time vol (${effPct}%) and config floor (${configPct}%) are aligned (within 2%).`,
+    });
+  }
+
+  // 4. Regime-specific context
+  const effectiveRegime = data.realtimeVol >= (data.hoRealtimeVol ?? 0) ? data.regime : data.hoRegime;
+  switch (effectiveRegime) {
+    case "CRISIS":
+      bullets.push({
+        icon: "🔴",
+        text: "Crisis regime (80%+): Extreme market uncertainty. Membership prices are significantly elevated to protect against rapid price swings. Consider whether to pause new signups.",
+      });
+      break;
+    case "ELEVATED":
+      bullets.push({
+        icon: "🟡",
+        text: "Elevated regime (50–80%): Above-normal market turbulence. Pricing is moderately higher than calm conditions. Monitor for further escalation.",
+      });
+      break;
+    case "NORMAL":
+      bullets.push({
+        icon: "🔵",
+        text: "Normal regime (25–50%): Typical market conditions. Pricing reflects standard fuel price uncertainty.",
+      });
+      break;
+    case "CALM":
+      bullets.push({
+        icon: "🟢",
+        text: "Calm regime (0–25%): Unusually stable markets. Membership prices are at their lowest. Good conditions for member acquisition.",
+      });
+      break;
+  }
+
+  return bullets;
+}
 
 function SparkLine({
   data,
@@ -165,6 +272,32 @@ export default function VolatilityPage() {
           </p>
         </div>
       )}
+
+      {/* Overview — plain-English explanation of why effective vol is where it is */}
+      {(() => {
+        const bullets = buildVolExplanation(data);
+        const effectiveRegime =
+          data.realtimeVol >= (data.hoRealtimeVol ?? 0) ? data.regime : data.hoRegime;
+        const rs = REGIME_STYLES[effectiveRegime] || REGIME_STYLES.NORMAL;
+        return (
+          <div className={`rounded-xl border ${rs.border} ${rs.bg} p-5`}>
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="text-sm font-semibold text-gray-900">Overview</h2>
+              <span className={`px-3 py-0.5 rounded-full text-xs font-bold ${rs.bg} ${rs.text} border ${rs.border}`}>
+                {(data.effectiveVol * 100).toFixed(0)}% — {rs.label}
+              </span>
+            </div>
+            <ul className="space-y-2">
+              {bullets.map((b, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                  <span className="shrink-0 mt-0.5">{b.icon}</span>
+                  <span>{b.text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {/* Top Cards — Row 1: Overall + Config */}
       <div className="grid grid-cols-3 gap-4">

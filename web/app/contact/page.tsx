@@ -47,7 +47,9 @@ export default function ContactPage() {
 
       <main className="max-w-lg mx-auto px-4 py-12">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Contact Us</h1>
-        <p className="text-gray-500 mb-8">Have a question or need help? We&apos;d love to hear from you.</p>
+        <p className="text-gray-500 mb-8">Have a question or need help? We&apos;d love to hear from you.<br />
+          <a href="mailto:support@mypumplock.com" className="text-emerald-600 hover:text-emerald-700 font-medium">support@mypumplock.com</a>
+        </p>
 
         {submitted ? (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">

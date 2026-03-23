@@ -472,7 +472,7 @@ export default function Home() {
         style={{
           backgroundImage: "url(/hero.jpg)",
           backgroundSize: "cover",
-          backgroundPosition: "70% center",
+          backgroundPosition: "center",
         }}
       >
         {/* Dark overlay on mobile, replaced by opaque emerald gradient on desktop */}

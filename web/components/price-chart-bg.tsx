@@ -158,18 +158,18 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
 
       // ── Ticker key (upper-left, Google Finance style) ──
       // WHY: Adds realism — looks like a real commodity chart at a glance.
-      // WHY: On narrow screens (<640px) the two info boxes overlap, so
-      // hide them entirely — the chart line alone is enough on mobile.
-      const showInfoBoxes = w >= 640;
+      // WHY: On mobile (<640px) show only the ticker box (scaled down).
+      // On desktop show both ticker and rebate boxes side by side.
+      const isMobile = w < 640;
 
-      const keyPad = 12;
-      const keyX = 100;
+      const keyPad = isMobile ? 8 : 12;
+      const keyX = isMobile ? 16 + keyPad : 100;
       const keyBoxX = keyX - keyPad;
       // WHY: Fixed pixel position so the box doesn't scale/distort
       // when the section grows taller with more form content.
-      const keyBoxY = 30;
-      const keyBoxW = 250;
-      const keyBoxH = 108;
+      const keyBoxY = isMobile ? 12 : 30;
+      const keyBoxW = isMobile ? 190 : 250;
+      const keyBoxH = isMobile ? 90 : 108;
 
       // WHY: Display a price that tracks the actual animated line so the
       // ticker feels alive, not static.
@@ -202,11 +202,7 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
         rebateTotal += overage * 0.02;
       }
 
-      // WHY: On mobile (<640px) the ticker and rebate boxes overlap because
-      // both are 250px wide and the screen isn't wide enough. Hide them
-      // on small screens — the animated chart line is enough.
-      if (showInfoBoxes) {
-      // ── Ticker box (upper-left) ──
+      // ── Ticker box (always shown — scaled down on mobile) ──
       ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
       ctx.beginPath();
       ctx.roundRect(keyBoxX, keyBoxY, keyBoxW, keyBoxH, 6);
@@ -218,28 +214,29 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
       let keyY = keyBoxY + keyPad + 4;
       ctx.textAlign = "left";
 
-      ctx.font = "bold 13px sans-serif";
+      ctx.font = `bold ${isMobile ? 11 : 13}px sans-serif`;
       ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
       ctx.fillText("RBW00:NYMEX", keyX, keyY);
-      keyY += 19;
+      keyY += isMobile ? 16 : 19;
 
-      ctx.font = "14px sans-serif";
+      ctx.font = `${isMobile ? 11 : 14}px sans-serif`;
       ctx.fillStyle = "rgba(0, 0, 0, 0.14)";
       ctx.fillText("RBOB Gasoline Futures", keyX, keyY);
-      keyY += 26;
+      keyY += isMobile ? 20 : 26;
 
-      ctx.font = "bold 28px monospace";
+      ctx.font = `bold ${isMobile ? 22 : 28}px monospace`;
       ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
       ctx.fillText(`$${displayPrice.toFixed(2)}`, keyX, keyY);
-      keyY += 22;
+      keyY += isMobile ? 18 : 22;
 
       const changeAmt = (displayPrice - 2.85).toFixed(2);
       const changePct = (((displayPrice - 2.85) / 2.85) * 100).toFixed(1);
-      ctx.font = "14px sans-serif";
+      ctx.font = `${isMobile ? 11 : 14}px sans-serif`;
       ctx.fillStyle = "rgba(239, 68, 68, 0.30)";
       ctx.fillText(`▲ +${changePct}% (+${changeAmt})  Today`, keyX, keyY);
 
-      // ── Rebate box (upper-right) ──
+      // ── Rebate box (upper-right, desktop only) ──
+      if (!isMobile) {
       const rebPad = 12;
       const rebBoxW = 250;
       const rebBoxH = 108;
@@ -338,7 +335,7 @@ export function PriceChartBg({ step = 1 }: { step?: number }) {
         ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
         ctx.fillText("Price below locked — no rebate yet", rebX, rebY);
       }
-      } // end showInfoBoxes
+      } // end rebate box (desktop only)
       offset += SPEED;
       animRef.current = requestAnimationFrame(draw);
     }

@@ -12,13 +12,13 @@ export function DollarWallBg() {
         style={{
           // WHY: 15° rotation exposes corners. The inner div must extend
           // well beyond the clipping parent so the tiled pattern covers
-          // every pixel. -50% inset + 200% size guarantees full coverage
-          // at 15° for any aspect ratio.
+          // every pixel. -80% inset + 260% size adds extra rows at top
+          // and bottom to eliminate any green gaps.
           position: "absolute",
-          top: "-50%",
-          left: "-50%",
-          width: "200%",
-          height: "200%",
+          top: "-80%",
+          left: "-80%",
+          width: "260%",
+          height: "260%",
           backgroundImage: "url(/dollar-bill.svg)",
           backgroundSize: "220px 95px",
           backgroundRepeat: "repeat",

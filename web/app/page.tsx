@@ -357,7 +357,7 @@ export default function Home() {
       ),
     },
     {
-      q: "How is my membership benefit calculated?",
+      q: "How is my Membership Benefit calculated?",
       a: (
         <>
           <p className="mb-3">Your benefit is calculated using a simple, transparent formula:</p>

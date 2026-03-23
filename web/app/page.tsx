@@ -517,7 +517,7 @@ export default function Home() {
 
             {/* Mobile-only badge — replaces the desktop badge that sits on the image */}
             <div className="mt-8 md:hidden">
-              <div className="bg-white/15 backdrop-blur-md rounded-xl px-5 py-3 inline-flex items-center gap-3 border border-white/20">
+              <div className="bg-white/15 backdrop-blur-md rounded-xl px-5 py-3 flex items-center justify-center gap-3 border border-white/20 w-full">
                 <PumpLockLogo className="w-8 h-8 shrink-0" />
                 <p className="text-sm text-white/90">
                   You pay your locked price.<br />

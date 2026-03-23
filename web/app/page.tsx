@@ -472,7 +472,7 @@ export default function Home() {
         style={{
           backgroundImage: "url(/hero.jpg)",
           backgroundSize: "cover",
-          backgroundPosition: "center",
+          backgroundPosition: "60% center",
         }}
       >
         {/* Dark overlay on mobile, replaced by opaque emerald gradient on desktop */}
@@ -520,7 +520,8 @@ export default function Home() {
               <div className="bg-white/15 backdrop-blur-md rounded-xl px-5 py-3 inline-flex items-center gap-3 border border-white/20">
                 <PumpLockLogo className="w-8 h-8 shrink-0" />
                 <p className="text-sm text-white/90">
-                  You pay your locked price. <span className="font-semibold text-emerald-400">We cover the rest.</span>
+                  You pay your locked price.<br />
+                  <span className="font-semibold text-emerald-400">We cover the rest.</span>
                 </p>
               </div>
             </div>
